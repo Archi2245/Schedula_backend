@@ -1,20 +1,37 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from "typeorm";
-import { Doctor } from "./doctor.entity";
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Doctor } from './doctor.entity';
+import { DoctorAvailability } from './doctor_availablity.entity';
 
 @Entity()
 export class Timeslot {
-    @PrimaryGeneratedColumn()
-    slot_id: number;
+  @PrimaryGeneratedColumn()
+  slot_id: number;
 
-    @ManyToOne(()=> Doctor, (doctor)=> doctor.timeslots)
-    doctor: Doctor;
+  @ManyToOne(() => Doctor, (doctor) => doctor.timeslots)
+  @JoinColumn({ name: 'doctor_id' })
+  doctor: Doctor;
 
-    @Column()
-    day_of_week: string;
+  @ManyToOne(() => DoctorAvailability, (availability) => availability.slots, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'availability_id' })
+  availability: DoctorAvailability;
 
-    @Column()
-    start_time: string;
+  @Column({ type: 'date' })
+  slot_date: Date;
 
-    @Column()
-    end_time: string;
+  @Column({ type: 'time' })
+  slot_time: string;
+
+  @Column({ default: true })
+  is_available: boolean;
+
+  @Column({ nullable: true })
+  session: string;
 }

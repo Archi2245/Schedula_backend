@@ -9,6 +9,7 @@ import {
 import { Appointment } from './appointment.entity';
 import { Timeslot } from './timeslot.entity';
 import { User } from './user.entity';
+import { DoctorAvailability } from './doctor_availablity.entity';
 
 @Entity()
 export class Doctor {
@@ -43,15 +44,12 @@ export class Doctor {
   @Column({ type: 'text', nullable: true })
   clinic_address: string;
 
-  @Column({ nullable: true })
-  available_days: string;
-
-  @Column({ nullable: true })
-  available_time_slots: string;
-
   @OneToMany(() => Appointment, (appointment) => appointment.doctor)
   appointments: Appointment[];
 
   @OneToMany(() => Timeslot, (slot) => slot.doctor)
   timeslots: Timeslot[];
+
+  @OneToMany(() => DoctorAvailability, (availability) => availability.doctor)
+  availabilities: DoctorAvailability[];
 }

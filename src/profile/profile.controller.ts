@@ -46,8 +46,7 @@ export class ProfileController {
       education: doctor.education,
       clinic_name: doctor.clinic_name,
       clinic_address: doctor.clinic_address,
-      available_days: doctor.available_days,
-      available_time_slots: doctor.available_time_slots,
+      available_slots: doctor.availabilities,
     };
   }
 

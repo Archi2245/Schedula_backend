@@ -62,8 +62,6 @@ export class AuthService {
           phoneNumber: signupdto.phone_number,
           education: signupdto.education,
           experience_years: signupdto.experience,
-          available_days: signupdto.available_days,
-          available_time_slots: signupdto.available_time_slots,
           clinic_name: signupdto.clinic_name,
           clinic_address: signupdto.clinic_address,
         });
