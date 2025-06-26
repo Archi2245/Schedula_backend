@@ -1,3 +1,7 @@
+import { TypeOrmModuleOptions } from '@nestjs/typeorm'; // ✅ This is required
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 export const typeOrmConfig: TypeOrmModuleOptions = isProduction
@@ -21,7 +25,7 @@ export const typeOrmConfig: TypeOrmModuleOptions = isProduction
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       autoLoadEntities: true,
-      synchronize: true, // OK for local dev
+      synchronize: true,
       logging: true,
       logger: 'advanced-console',
       entities: [__dirname + '/**/*.entity.{ts,js}'],
