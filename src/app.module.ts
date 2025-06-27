@@ -7,7 +7,6 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { AccessTokenGuard } from './auth/guard/access-token.guard';
 import { DoctorController } from './doctor/doctor.controller';
 import { PatientController } from './patient/patient.controller';
-import { AppController } from './app.controller';
 import { Doctor } from './entities/doctor.entity';
 import { Patient } from './entities/patient.entity';
 import { Appointment } from './entities/appointment.entity';
@@ -28,7 +27,7 @@ import { AppDataSource } from './typeorm.config';
     DoctorModule,
   ],
 
-  controllers: [DoctorController, PatientController, AppController],
+  controllers: [DoctorController, PatientController],
 
   providers: [DoctorService],
 })
