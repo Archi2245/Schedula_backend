@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📋 Schedula Backend With Nestjs
 
 A backend system for doctor-patient appointment management built using **NestJS**, **PostgreSQL**, and **TypeORM**.
@@ -88,3 +89,12 @@ npm run start:dev
 | GET    | /api/v1/doctor/profile     | View doctor profile                  |
 
 ---
+=======
+<<<<<<< HEAD
+# Schedula_backend
+=======
+✅ Created a basic NestJS Hello World route using controller & service
+✅ Tested API with Hoppscotch - received expected response
+✅ Ready for review
+>>>>>>> b3b7d94 (commit)
+>>>>>>> main

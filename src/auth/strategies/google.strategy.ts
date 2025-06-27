@@ -1,38 +1,35 @@
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable } from '@nestjs/common';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
-// it handles google oauth
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
-  constructor() {
+  constructor(configService: ConfigService) {
     super({
-      clientID: process.env.GOOGLE_CLIENT_ID || 'default',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'default',
-      callbackURL:
-        process.env.GOOGLE_REDIRECT_URI ||
-        'http://localhost:3000/api/v1/auth/google/callback',
-      passReqToCallback: true,
+      clientID: configService.get<string>('GOOGLE_CLIENT_ID')!,
+      clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET')!,
+      callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL')!,
       scope: ['email', 'profile'],
+      passReqToCallback: true, // enables req in validate()
     });
   }
 
-  // passes the profile to the controller
   async validate(
     req: any,
-    access_token: string,
-    refresh_token: string,
+    accessToken: string,
+    refreshToken: string,
     profile: any,
     done: VerifyCallback,
   ): Promise<any> {
-    // Pass the Google profile + role to controller
-    const role = req.query.role || 'patient';
     const user = {
-      email: profile.emails[0].value,
+      email: profile.emails?.[0]?.value,
       name: profile.displayName,
       provider: 'google',
-      role,
+      password: '', // to avoid null constraints if needed
+      role: req.query.role || 'patient',
     };
+
     done(null, user);
   }
 }

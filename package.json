@@ -4,16 +4,30 @@
   "description": "",
   "author": "",
   "private": true,
+<<<<<<< HEAD
+=======
+  "workspaces": [
+    "Schedula_Backend_Code_Crusaders"
+  ],
+>>>>>>> main
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
+<<<<<<< HEAD
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate src/migrations/InitSchema -d src/data-source.ts",
     "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/data-source.ts",
     "start:debug": "nest start --debug --watch",
+=======
+    "start:debug": "nest start --debug --watch",
+    "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
+    "migration:generate": "yarn typeorm migration:generate src/migrations/InitMigration -d data-source.ts",
+    "migration:run": "yarn typeorm migration:run -d data-source.ts",
+    "migration:revert": "yarn typeorm migration:revert -d data-source.ts",
+>>>>>>> main
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
@@ -31,6 +45,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.0",
     "bcrypt": "^6.0.0",
+<<<<<<< HEAD
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -38,6 +53,19 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.24"
+=======
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "dotenv": "^16.3.1",
+    "express-session": "^1.18.1",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-jwt": "^4.0.1",
+    "pg": "^8.11.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.17"
+>>>>>>> main
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -49,8 +77,15 @@
     "@swc/core": "^1.10.7",
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^5.0.0",
+<<<<<<< HEAD
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
+=======
+    "@types/express-session": "^1.18.2",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.32",
+    "@types/passport": "^0",
+>>>>>>> main
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
@@ -67,7 +102,12 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
+<<<<<<< HEAD
     "typescript-eslint": "^8.20.0"
+=======
+    "typescript-eslint": "^8.20.0",
+    "webpack": "^5.99.9"
+>>>>>>> main
   },
   "jest": {
     "moduleFileExtensions": [
@@ -85,5 +125,10 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+<<<<<<< HEAD
   }
+=======
+  },
+  "packageManager": "yarn@4.9.2"
+>>>>>>> main
 }
