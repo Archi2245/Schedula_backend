@@ -1,32 +1,14 @@
-import { TypeOrmModuleOptions } from '@nestjs/typeorm'; // ✅ This is required
+import 'reflect-metadata';
+import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
-const isProduction = process.env.NODE_ENV === 'production';
-
-export const typeOrmConfig: TypeOrmModuleOptions = isProduction
-  ? {
-      type: 'postgres',
-      url: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false,
-      },
-      autoLoadEntities: true,
-      synchronize: false,
-      logging: true,
-      logger: 'advanced-console',
-      entities: [__dirname + '/**/*.entity.{ts,js}'],
-    }
-  : {
-      type: 'postgres',
-      host: process.env.DB_HOST,
-      port: parseInt(process.env.DB_PORT || '5432'),
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      autoLoadEntities: true,
-      synchronize: true,
-      logging: true,
-      logger: 'advanced-console',
-      entities: [__dirname + '/**/*.entity.{ts,js}'],
-    };
+export const AppDataSource = new DataSource({
+  type: 'postgres',
+  url: process.env.DATABASE_URL, // ✅ Use DATABASE_URL in production
+  synchronize: true,
+  logging: true,
+  entities: ['src/**/*.entity.{ts,js}'],
+  migrations: ['src/migrations/*.ts'],
+});
