@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { typeOrmConfig } from './typeorm.config';
 import { HelloWorldArchiModule } from './hello-world-archi/hello-world-archi.module';
 import { AuthModule } from './auth/auth.module';
 import { APP_GUARD } from '@nestjs/core';
@@ -17,10 +16,11 @@ import { ConfigModule } from '@nestjs/config';
 import { DoctorService } from './doctor/doctor.service';
 import { DoctorModule } from './doctor/doctor.module';
 import { DoctorAvailability } from './entities/doctor-availability.entity';
+import { AppDataSource } from './typeorm.config'; 
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot(typeOrmConfig),
+    TypeOrmModule.forRoot(AppDataSource.options),
     TypeOrmModule.forFeature([Doctor, Patient, Appointment, TimeSlot, DoctorAvailability]),
     HelloWorldArchiModule,
     ConfigModule.forRoot({ isGlobal: true }),
