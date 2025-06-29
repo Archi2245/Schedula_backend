@@ -6,6 +6,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Doctor } from 'src/entities/doctor.entity';
 import { Patient } from 'src/entities/patient.entity';
 import { Repository } from 'typeorm';
+import { Role } from 'src/types/roles.enum';
 
 @Controller('api/v1')
 export class ProfileController {
@@ -18,7 +19,7 @@ export class ProfileController {
   ) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('doctor')
+  @Roles(Role.DOCTOR)
   @Get('doctor/profile')
   async getDoctorProfile(@Req() req: any) {
     const user_id = req.user.sub;
@@ -27,7 +28,7 @@ export class ProfileController {
       return { message: 'User ID not found in request' };
     }
     const doctor = await this.doctorRepository.findOne({
-      where: { user: { user_id: user_id } },
+      where: { user: { id: user_id } },
       relations: ['user'],
     });
 
@@ -37,11 +38,10 @@ export class ProfileController {
 
     return {
       doctor_id: doctor.doctor_id,
-      first_name: doctor.first_name,
-      last_name: doctor.last_name,
+      name: doctor.name,
       email: doctor.user.email,
       specialization: doctor.specialization,
-      phone_number: doctor.phoneNumber,
+      phone_number: doctor.phone_number,
       experience: doctor.experience_years,
       education: doctor.education,
       clinic_name: doctor.clinic_name,
@@ -51,7 +51,7 @@ export class ProfileController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('patient')
+  @Roles(Role.PATIENT)
   @Get('patient/profile')
   async getPatientProfile(@Req() req: any) {
     const user_id = req.user.sub;
@@ -60,7 +60,7 @@ export class ProfileController {
       return { message: 'User ID not found in request' };
     }
     const patient = await this.patientRepository.findOne({
-      where: { user: { user_id: user_id } },
+      where: { user: { id: user_id } },
       relations: ['user'],
     });
     if (!patient) {
@@ -74,7 +74,7 @@ export class ProfileController {
       phone_number: patient.phone_number,
       gender: patient.gender,
       dob: patient.dob,
-      patient_address: patient.patient_address,
+      patient_address: patient.address,
       emergency_contact: patient.emergency_contact,
       medical_history: patient.medical_history,
     };

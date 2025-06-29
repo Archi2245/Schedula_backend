@@ -13,7 +13,7 @@ export class Timeslot {
   @PrimaryGeneratedColumn()
   slot_id: number;
 
-  @ManyToOne(() => Doctor, (doctor) => doctor.timeslots)
+  @ManyToOne(() => Doctor, (doctor) => doctor.timeSlots)
   @JoinColumn({ name: 'doctor_id' })
   doctor: Doctor;
 

@@ -1,11 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-<<<<<<< HEAD
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
-=======
 import { ValidationPipe } from '@nestjs/common';
 import * as session from 'express-session';
 import * as passport from 'passport';
@@ -33,6 +27,5 @@ async function bootstrap() {
 
 
   await app.listen(process.env.PORT || 3000);
->>>>>>> main
 }
 bootstrap();
