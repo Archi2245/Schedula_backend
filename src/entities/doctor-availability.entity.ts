@@ -16,8 +16,8 @@ export class DoctorAvailability {
   @ManyToOne(() => Doctor, (doctor) => doctor.availabilities)
   doctor: Doctor;
 
-  @Column()
-  date: string; // YYYY-MM-DD
+  @Column({ nullable: true })  // Add this temporarily
+  date: string;
 
   @Column()
   weekday: string;
