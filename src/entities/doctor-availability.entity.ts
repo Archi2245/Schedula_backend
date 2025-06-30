@@ -31,8 +31,8 @@ export class DoctorAvailability {
   @Column()
   end_time: string; // e.g., 13:00
 
-  @Column('simple-array')
-  time_slots: string[]; // ["10:00", "10:15", "10:30", ...]
+  @Column({ type: 'text', nullable: true }) // <- allow nulls for now
+  time_slots: string; 
 
   @Column('simple-array', { default: '' })
   booked_slots: string[]; // ["10:00", "10:15"]
