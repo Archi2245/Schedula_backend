@@ -3,9 +3,9 @@ import { DataSource } from 'typeorm';
 import { Doctor } from './entities/doctor.entity';
 import { Patient } from './entities/patient.entity';
 import { Appointment } from './entities/appointment.entity';
-import { Timeslot } from './entities/timeslot.entity';
 import { User } from './entities/user.entity';
-import { DoctorAvailability } from './entities/doctor_availablity.entity';
+import { TimeSlot } from './entities/time-slot.entity';
+import { DoctorAvailability } from './entities/doctor-availability.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -14,7 +14,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  entities: [Doctor, Patient, User, Appointment, Timeslot, DoctorAvailability],
+  entities: [Doctor, Patient, User, Appointment, TimeSlot, DoctorAvailability],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
 });
