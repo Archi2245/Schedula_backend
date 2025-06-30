@@ -85,43 +85,43 @@ export class DoctorService {
 
   // ✅ Step 3: Doctor sets availability
   async createAvailability(doctorId: number, dto: CreateAvailabilityDto) {
-    const { date, weekday, session, start_time, end_time } = dto;
+  const { date, weekday, session, start_time, end_time } = dto;
 
-    const today = new Date().toISOString().split('T')[0];
-    if (date < today) {
-      throw new BadRequestException('Cannot select a past date');
-    }
+  const today = new Date().toISOString().split('T')[0];
+  if (date < today) {
+    throw new BadRequestException('Cannot select a past date');
+  }
 
-    const exists = await this.availabilityRepo.findOne({
-      where: {
-        doctor: { doctor_id: doctorId },
-        date,
-        session,
-      },
-      relations: ['doctor'],
-    });
-
-    if (exists) {
-      throw new BadRequestException(
-        'Availability already exists for this date and session'
-      );
-    }
-
-    const slots = generateTimeSlots(start_time, end_time);
-
-    const record = this.availabilityRepo.create({
+  const exists = await this.availabilityRepo.findOne({
+    where: {
       doctor: { doctor_id: doctorId },
       date,
-      weekday,
       session,
-      start_time,
-      end_time,
-      time_slots: slots,
-      booked_slots: [],
-    });
+    },
+    relations: ['doctor'],
+  });
 
-    return await this.availabilityRepo.save(record);
+  if (exists) {
+    throw new BadRequestException(
+      'Availability already exists for this date and session'
+    );
   }
+
+  const slots = generateTimeSlots(start_time, end_time);
+
+  const record = this.availabilityRepo.create({
+    doctor: { doctor_id: doctorId },
+    date,
+    weekday,
+    session,
+    start_time,
+    end_time,
+    time_slots: slots,
+    booked_slots: [], // ✅ FIX: Explicitly set empty array
+  });
+
+  return await this.availabilityRepo.save(record);
+}
 
   async getAvailableSlots(doctorId: number, page = 1, limit = 5) {
     // Get doctor info to include schedule_type

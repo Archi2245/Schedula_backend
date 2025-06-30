@@ -99,10 +99,14 @@ export class AppointmentsService {
     const savedAppointment = await this.appointmentRepo.save(appointment);
 
     // 7. Update availability booked_slots
-    if (!availability.booked_slots.includes(requestedSlot)) {
-      availability.booked_slots.push(requestedSlot);
-      await this.availabilityRepo.save(availability);
-    }
+    if (!Array.isArray(availability.booked_slots)) {
+  availability.booked_slots = []; // Initialize as empty array if null/undefined
+}
+
+if (!availability.booked_slots.includes(requestedSlot)) {
+  availability.booked_slots.push(requestedSlot);
+  await this.availabilityRepo.save(availability);
+}
 
     return {
       message: 'Appointment booked successfully',
@@ -119,15 +123,20 @@ export class AppointmentsService {
 
   // Handle Stream Scheduling (1 patient per slot)
   private async handleStreamScheduling(
-    availability: DoctorAvailability,
-    requestedSlot: string,
-  ) {
-    if (availability.booked_slots.includes(requestedSlot)) {
-      throw new ConflictException(
-        'Time slot is already booked (Stream scheduling allows only 1 patient per slot)'
-      );
-    }
+  availability: DoctorAvailability,
+  requestedSlot: string,
+) {
+  // ✅ FIX: Safe check for booked_slots
+  const bookedSlots = Array.isArray(availability.booked_slots) 
+    ? availability.booked_slots 
+    : [];
+    
+  if (bookedSlots.includes(requestedSlot)) {
+    throw new ConflictException(
+      'Time slot is already booked (Stream scheduling allows only 1 patient per slot)'
+    );
   }
+}
 
   // Handle Wave Scheduling (multiple patients per slot, max 3)
   private async handleWaveScheduling(
