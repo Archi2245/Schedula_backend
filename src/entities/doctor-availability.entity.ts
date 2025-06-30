@@ -16,7 +16,7 @@ export class DoctorAvailability {
   @ManyToOne(() => Doctor, (doctor) => doctor.availabilities)
   doctor: Doctor;
 
-  @Column({ nullable: true })  // Add this temporarily
+  @Column({ type: 'date' }) // Remove nullable: true
   date: string;
 
   @Column()
@@ -31,11 +31,19 @@ export class DoctorAvailability {
   @Column()
   end_time: string; // e.g., 13:00
 
-  @Column({ type: 'text', array: true, nullable: true })
-  time_slots: string[]; 
+  // Fix for PostgreSQL - use json type instead of text array
+  @Column({ 
+    type: 'json',
+    default: () => "'[]'" 
+  })
+  time_slots: string[];
 
-  @Column('simple-array', { default: '' })
-  booked_slots: string[]; // ["10:00", "10:15"]
+  // Fix for PostgreSQL - use json type instead of simple-array
+  @Column({ 
+    type: 'json',
+    default: () => "'[]'" 
+  })
+  booked_slots: string[];
 
   @CreateDateColumn()
   created_at: Date;

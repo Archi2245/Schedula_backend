@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { Doctor } from '../entities/doctor.entity';
-import { DoctorAvailability } from 'src/entities/doctor-availability.entity';
+import { DoctorAvailability } from '../entities/doctor-availability.entity';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { UpdateScheduleTypeDto } from './dto/update-schedule-type.dto';
 import { generateTimeSlots } from './utils/slot-generator';

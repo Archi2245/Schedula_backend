@@ -5,7 +5,7 @@ dotenv.config();
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,  // ✅ Use full connection URL
-  synchronize: true,
+  synchronize: false,
   migrations: ['dist/migrations/*.js'], // for production
   entities: ['dist/**/*.entity.js'],    // for production
   ssl: {
