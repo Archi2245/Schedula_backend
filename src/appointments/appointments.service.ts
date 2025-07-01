@@ -126,18 +126,23 @@ if (!availability.booked_slots.includes(requestedSlot)) {
   availability: DoctorAvailability,
   requestedSlot: string,
 ) {
-  // ✅ FIX: Safe check for booked_slots
-  const bookedSlots = Array.isArray(availability.booked_slots) 
-    ? availability.booked_slots 
-    : [];
-    
-  if (bookedSlots.includes(requestedSlot)) {
+  // Method 1: Check actual appointments in database (most reliable)
+  const existingAppointments = await this.appointmentRepo.count({
+    where: {
+      doctor: { doctor_id: availability.doctor.doctor_id },
+      appointment_date: availability.date,
+      session: availability.session,
+      start_time: requestedSlot,
+      appointment_status: 'confirmed', // Only count confirmed appointments
+    },
+  });
+
+  if (existingAppointments > 0) {
     throw new ConflictException(
       'Time slot is already booked (Stream scheduling allows only 1 patient per slot)'
     );
   }
 }
-
   // Handle Wave Scheduling (multiple patients per slot, max 3)
   private async handleWaveScheduling(
     availability: DoctorAvailability,
