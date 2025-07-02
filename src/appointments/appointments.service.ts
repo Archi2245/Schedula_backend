@@ -86,40 +86,45 @@ export class AppointmentsService {
 
   // NEW: Get doctor's availability with real-time slot info
   async getDoctorAvailability(doctorId: number, fromDate: string, toDate: string) {
-    const availabilities = await this.availabilityRepo.find({
-      where: {
-        doctor: { doctor_id: doctorId },
-        date: Between(fromDate, toDate)
-      },
-      relations: ['doctor'],
-      order: { date: 'ASC', session: 'ASC' }
-    });
+  const availabilities = await this.availabilityRepo.find({
+    where: {
+      doctor: { doctor_id: doctorId },
+      date: Between(fromDate, toDate)
+    },
+    relations: ['doctor'],
+    order: { date: 'ASC', session: 'ASC' }
+  });
 
-    return availabilities.map(availability => {
-      const maxSlotsPerSlot = availability.doctor.schedule_type === 'stream' ? 1 : 3;
-      
-      const slotsWithAvailability = availability.time_slots.map(slot => {
-        const bookedCount = availability.slot_bookings[slot] || 0;
-        return {
-          time: slot,
-          available_spots: maxSlotsPerSlot - bookedCount,
-          total_spots: maxSlotsPerSlot,
-          is_fully_booked: bookedCount >= maxSlotsPerSlot
-        };
-      });
-
+  return availabilities.map(availability => {
+    // 🔥 CHANGE: Use doctor's configuration
+    const maxSlotsPerSlot = availability.doctor.schedule_type === 'stream' 
+      ? 1 
+      : availability.doctor.patients_per_slot;
+    
+    const slotsWithAvailability = availability.time_slots.map(slot => {
+      const bookedCount = availability.slot_bookings[slot] || 0;
       return {
-        date: availability.date,
-        weekday: availability.weekday,
-        session: availability.session,
-        start_time: availability.start_time,
-        end_time: availability.end_time,
-        schedule_type: availability.doctor.schedule_type,
-        available_slots: slotsWithAvailability.filter(slot => !slot.is_fully_booked),
-        all_slots: slotsWithAvailability
+        time: slot,
+        available_spots: maxSlotsPerSlot - bookedCount,
+        total_spots: maxSlotsPerSlot,
+        is_fully_booked: bookedCount >= maxSlotsPerSlot
       };
     });
-  }
+
+    return {
+      date: availability.date,
+      weekday: availability.weekday,
+      session: availability.session,
+      start_time: availability.start_time,
+      end_time: availability.end_time,
+      schedule_type: availability.doctor.schedule_type,
+      slot_duration: availability.doctor.slot_duration, // NEW
+      patients_per_slot: availability.doctor.patients_per_slot, // NEW
+      available_slots: slotsWithAvailability.filter(slot => !slot.is_fully_booked),
+      all_slots: slotsWithAvailability
+    };
+  });
+}
 
   //  ENHANCED: Create appointment with realistic scheduling
   async createAppointment(patientUserId: number, dto: CreateAppointmentDto) {
@@ -265,47 +270,50 @@ export class AppointmentsService {
 
   // Handle Stream Scheduling (1 patient per slot)
   private async handleStreamScheduling(
-    availability: DoctorAvailability,
-    requestedSlot: string,
-  ) {
-    const currentBookings = availability.slot_bookings[requestedSlot] || 0;
+  availability: DoctorAvailability,
+  requestedSlot: string,
+): Promise<{ position: number; actualStartTime: Date }> {
+  const currentBookings = availability.slot_bookings[requestedSlot] || 0;
 
-    if (currentBookings > 0) {
-      throw new ConflictException(
-        'Time slot is already booked (Stream scheduling allows only 1 patient per slot)'
-      );
-    }
+  if (currentBookings > 0) {
+    throw new ConflictException(
+      `Time slot is already booked (Stream scheduling allows only 1 patient per ${availability.doctor.slot_duration}-minute slot)`
+    );
   }
+  
+  // Stream scheduling: reporting_time = scheduled_on
+  return { 
+    position: 1, 
+    actualStartTime: parseISO(requestedSlot) // Keep original time
+  };
+}
 
   //  ENHANCED: Handle Wave Scheduling with realistic time assignment
   private async handleWaveScheduling(
-    availability: DoctorAvailability,
-    requestedDateTime: Date,
-  ): Promise<{ position: number; actualStartTime: Date }> {
-    const slotKey = format(requestedDateTime, 'HH:mm');
-    const currentBookings = availability.slot_bookings[slotKey] || 0;
-    
-    if (currentBookings >= 3) {
-      throw new ConflictException('Time slot is fully booked (max 3 patients)');
-    }
-    
-    const position = currentBookings + 1;
-    let actualStartTime = requestedDateTime;
-    
-    // Wave scheduling time assignment based on real medical practices
-    if (position === 1) {
-      // First patient gets exact slot time
-      actualStartTime = requestedDateTime;
-    } else if (position === 2) {
-      // Second patient gets +15 minutes within the same 30-minute window
-      actualStartTime = addMinutes(requestedDateTime, 15);
-    } else if (position === 3) {
-      // Third patient gets same time as first (overlapping wave)
-      actualStartTime = requestedDateTime;
-    }
-    
-    return { position, actualStartTime };
+  availability: DoctorAvailability,
+  requestedDateTime: Date,
+): Promise<{ position: number; actualStartTime: Date }> {
+  const slotKey = format(requestedDateTime, 'HH:mm');
+  const currentBookings = availability.slot_bookings[slotKey] || 0;
+  
+  // 🔥 CHANGE: Use doctor's configuration
+  const maxPatients = availability.doctor.patients_per_slot;
+  
+  if (currentBookings >= maxPatients) {
+    throw new ConflictException(`Time slot is fully booked (max ${maxPatients} patients)`);
   }
+  
+  const position = currentBookings + 1;
+  
+  // 🔥 NEW LOGIC: Calculate reporting time interval
+  const reportingInterval = availability.doctor.slot_duration / maxPatients;
+  
+  // Calculate actual start time based on position
+  const minutesToAdd = (position - 1) * reportingInterval;
+  const actualStartTime = addMinutes(requestedDateTime, minutesToAdd);
+  
+  return { position, actualStartTime };
+}
 
   //  NEW: Get patient's upcoming appointments
   async getPatientUpcomingAppointments(patientUserId: number) {

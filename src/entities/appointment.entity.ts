@@ -52,4 +52,10 @@ export class Appointment {
 
   @ManyToOne(() => Patient, pat => pat.appointments)
   patient: Patient;
+
+@Column({ type: 'timestamp', nullable: true })
+reporting_time?: Date; // Actual time patient should arrive (different from scheduled_on in wave)
+
+@Column({ nullable: true })
+time_interval_minutes?: number; // For wave: slot_duration/patients_per_slot
 }

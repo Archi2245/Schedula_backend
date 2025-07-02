@@ -9,10 +9,12 @@ export function generateAvailableSlots(
   startTime: string,
   endTime: string,
   scheduleType: 'stream' | 'wave',
+  slotDuration: number, // NEW PARAMETER
+  patientsPerSlot: number, // NEW PARAMETER
   existingBookings: Record<string, number> = {}
 ): SlotInfo[] {
   const slots: SlotInfo[] = [];
-  const maxSpots = scheduleType === 'stream' ? 1 : 3;
+  const maxSpots = scheduleType === 'stream' ? 1 : patientsPerSlot; // DYNAMIC
 
   const [startH, startM] = startTime.split(':').map(Number);
   const [endH, endM] = endTime.split(':').map(Number);
@@ -34,7 +36,7 @@ export function generateAvailableSlots(
       is_fully_booked: bookedCount >= maxSpots
     });
     
-    current += 15; // 15-minute intervals
+    current += slotDuration; // DYNAMIC INTERVAL
   }
 
   return slots;

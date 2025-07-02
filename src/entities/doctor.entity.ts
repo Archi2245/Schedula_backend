@@ -65,5 +65,14 @@ export class Doctor {
   @OneToMany(() => DoctorAvailability, (availability) => availability.doctor)
   availabilities: DoctorAvailability[];
 
+@Column({ default: 15 })
+slot_duration: number; // Minutes per slot (10, 15, 20, 30)
+
+@Column({ default: 1 })
+patients_per_slot: number; // For wave scheduling (1, 2, 3, 4)
+
+@Column({ default: 15 })
+consulting_time_per_patient: number; // Minutes per patient consultation
+
 
 }
