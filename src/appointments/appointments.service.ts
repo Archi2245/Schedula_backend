@@ -13,6 +13,8 @@ import { DoctorAvailability } from '../entities/doctor-availability.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { format, addMinutes, parseISO, isAfter } from 'date-fns';
 
+
+
 @Injectable()
 export class AppointmentsService {
   constructor(

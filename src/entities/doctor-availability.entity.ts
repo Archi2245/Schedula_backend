@@ -21,6 +21,9 @@ export class DoctorAvailability {
   @Column()
   session: 'morning' | 'evening';
 
+  @Column("text", { array: true })
+  booked_slots: string[];
+
   @Column()
   start_time: string; // e.g., "09:00"
 
