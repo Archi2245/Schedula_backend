@@ -3,7 +3,7 @@ import {
   IsString,
   IsEnum,
   IsNumber,
-  Matches,
+  IsISO8601,
   IsOptional
 } from 'class-validator';
 
@@ -11,8 +11,8 @@ export class CreateAppointmentDto {
   @IsNumber()
   doctor_id: number;
 
-  @IsDateString()
-  date: string; // YYYY-MM-DD format
+  @IsISO8601()
+  scheduled_on: string; // Full ISO datetime: "2025-07-15T09:00:00.000Z"
 
   @IsString()
   weekday: string;
@@ -21,16 +21,6 @@ export class CreateAppointmentDto {
     message: 'Session must be morning or evening' 
   })
   session: 'morning' | 'evening';
-
-  @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, { 
-    message: 'Start time must be HH:MM format' 
-  })
-  start_time: string;
-
-  @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, { 
-    message: 'End time must be HH:MM format' 
-  })
-  end_time: string;
 
   @IsOptional()
   @IsString()

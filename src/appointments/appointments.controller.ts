@@ -2,7 +2,9 @@ import {
   Controller,
   Post,
   Get,
+  Param,
   Body,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -19,7 +21,7 @@ import { GetCurrentUserId } from '../auth/decorator/get-current-user-id.decorato
 export class AppointmentsController {
   constructor(private appointmentsService: AppointmentsService) {}
 
-  // 📍 POST /appointments - Book an appointment (Patients only)
+  //  POST /appointments - Book an appointment (Patients only)
   @Post()
   @Roles(Role.PATIENT)
   async createAppointment(
@@ -29,20 +31,54 @@ export class AppointmentsController {
     return this.appointmentsService.createAppointment(userId, dto);
   }
 
-  // 📍 GET /appointments/patient - Get patient's appointments
+  // GET /appointments/patient - Get patient's appointments
   @Get('patient')
   @Roles(Role.PATIENT)
   async getPatientAppointments(@GetCurrentUserId() userId: number) {
     return this.appointmentsService.getPatientAppointments(userId);
   }
 
-  // 📍 GET /appointments/doctor - Get doctor's appointments
+  //  GET /appointments/doctor - Get doctor's appointments
   @Get('doctor')
   @Roles(Role.DOCTOR)
   async getDoctorAppointments(@Req() req) {
-    // You'll need to get doctor ID from the user. 
-    // This assumes you have a way to get doctor profile from user ID
-    // You might need to modify this based on your user-doctor relationship
     return { message: 'Doctor appointments endpoint - implement doctor ID lookup' };
   }
+
+  //  Get all doctors with basic info
+@Get('doctors')
+async getAllDoctors() {
+  return this.appointmentsService.getAllDoctors();
+}
+
+//  Get specific doctor details
+@Get('doctors/:doctorId')
+async getDoctorDetails(@Param('doctorId') doctorId: number) {
+  return this.appointmentsService.getDoctorDetails(doctorId);
+}
+
+//  Get doctor's availability for specific date range
+@Get('doctors/:doctorId/availability')
+async getDoctorAvailability(
+  @Param('doctorId') doctorId: number,
+  @Query('from') fromDate: string,
+  @Query('to') toDate: string,
+) {
+  return this.appointmentsService.getDoctorAvailability(doctorId, fromDate, toDate);
+}
+
+@Get('view-appointments')
+@Roles(Role.PATIENT)
+async getPatientUpcomingAppointments(@GetCurrentUserId() userId: number) {
+  return this.appointmentsService.getPatientUpcomingAppointments(userId);
+}
+
+@Get('view-appointments')
+@Roles(Role.DOCTOR)
+async getDoctorUpcomingAppointments(@GetCurrentUserId() userId: number) {
+  const doctorId = await this.appointmentsService.getDoctorIdByUserId(userId);
+  return this.appointmentsService.getDoctorUpcomingAppointments(doctorId);
+}
+
+  
 }

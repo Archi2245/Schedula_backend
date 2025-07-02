@@ -1,10 +1,6 @@
-// src/entities/doctor-availability.entity.ts
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  CreateDateColumn,
+  Entity, PrimaryGeneratedColumn, Column,
+  ManyToOne, CreateDateColumn,
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
 
@@ -16,7 +12,7 @@ export class DoctorAvailability {
   @ManyToOne(() => Doctor, (doctor) => doctor.availabilities)
   doctor: Doctor;
 
-  @Column({ type: 'date' }) // Remove nullable: true
+  @Column({ type: 'date' })
   date: string;
 
   @Column()
@@ -26,24 +22,28 @@ export class DoctorAvailability {
   session: 'morning' | 'evening';
 
   @Column()
-  start_time: string; // e.g., 10:00
+  start_time: string; // e.g., "09:00"
 
   @Column()
-  end_time: string; // e.g., 13:00
+  end_time: string; // e.g., "12:00"
 
-  // Fix for PostgreSQL - use json type instead of text array
+  // 🔥 NEW: Enhanced slot management
   @Column({ 
     type: 'json',
     default: () => "'[]'" 
   })
-  time_slots: string[];
+  time_slots: string[]; // ["09:00", "09:15", "09:30", ...]
 
-  // Fix for PostgreSQL - use json type instead of simple-array
+  // 🔥 NEW: Detailed booking tracking
   @Column({ 
     type: 'json',
-    default: () => "'[]'" 
+    default: () => "'{}'" 
   })
-  booked_slots: string[];
+  slot_bookings: Record<string, number>; // {"09:00": 2, "09:15": 1} - count per slot
+
+  // 🔥 NEW: Maximum capacity per slot based on schedule type
+  @Column({ default: 1 })
+  max_patients_per_slot: number; // 1 for stream, 3 for wave
 
   @CreateDateColumn()
   created_at: Date;

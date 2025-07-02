@@ -1,8 +1,21 @@
-export function generateTimeSlots(start: string, end: string): string[] {
-  const slots: string[] = []; // ✅ explicitly typed as string[]
+export interface SlotInfo {
+  time: string;
+  available_spots: number;
+  total_spots: number;
+  is_fully_booked: boolean;
+}
 
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
+export function generateAvailableSlots(
+  startTime: string,
+  endTime: string,
+  scheduleType: 'stream' | 'wave',
+  existingBookings: Record<string, number> = {}
+): SlotInfo[] {
+  const slots: SlotInfo[] = [];
+  const maxSpots = scheduleType === 'stream' ? 1 : 3;
+
+  const [startH, startM] = startTime.split(':').map(Number);
+  const [endH, endM] = endTime.split(':').map(Number);
 
   let current = startH * 60 + startM;
   const endTotal = endH * 60 + endM;
@@ -10,8 +23,18 @@ export function generateTimeSlots(start: string, end: string): string[] {
   while (current < endTotal) {
     const h = Math.floor(current / 60).toString().padStart(2, '0');
     const m = (current % 60).toString().padStart(2, '0');
-    slots.push(`${h}:${m}`); // ✅ now valid
-    current += 15;
+    const timeSlot = `${h}:${m}`;
+    
+    const bookedCount = existingBookings[timeSlot] || 0;
+    
+    slots.push({
+      time: timeSlot,
+      available_spots: maxSpots - bookedCount,
+      total_spots: maxSpots,
+      is_fully_booked: bookedCount >= maxSpots
+    });
+    
+    current += 15; // 15-minute intervals
   }
 
   return slots;

@@ -10,8 +10,9 @@ export class Appointment {
   @PrimaryGeneratedColumn()
   appointment_id: number;
 
-  @Column({ type: 'date' })
-  appointment_date: string; // Store as YYYY-MM-DD format
+  // 🔥 CHANGE: Combined date and time into one field
+  @Column({ type: 'timestamp' })
+  scheduled_on: Date; // Stores both date and time
 
   @Column()
   weekday: string; // e.g., "Monday", "Tuesday"
@@ -19,16 +20,18 @@ export class Appointment {
   @Column()
   session: 'morning' | 'evening';
 
-  @Column()
-  start_time: string; // e.g., "10:00"
+  // 🔥 CHANGE: Duration in minutes instead of end_time
+  @Column({ default: 15 })
+  duration_minutes: number; // 15 minutes for most appointments
 
-  @Column()
-  end_time: string; // e.g., "12:00"
+  // 🔥 NEW: Slot position for wave scheduling
+  @Column({ nullable: true })
+  slot_position?: number; // 1, 2, 3 for wave scheduling order
 
   @Column({ 
     type: 'enum', 
     enum: ['pending', 'confirmed', 'cancelled', 'completed'], 
-    default: 'pending' 
+    default: 'confirmed' 
   })
   appointment_status: string;
 
