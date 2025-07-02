@@ -10,7 +10,7 @@ import { Doctor } from '../entities/doctor.entity';
 import { DoctorAvailability } from '../entities/doctor-availability.entity';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { UpdateScheduleTypeDto } from './dto/update-schedule-type.dto';
-import { generateTimeSlots } from './utils/slot-generator';
+import { generateAvailableSlots } from './utils/slot-generator';
 
 @Injectable()
 export class DoctorService {
@@ -92,14 +92,14 @@ export class DoctorService {
     throw new BadRequestException('Cannot select a past date');
   }
 
-  const exists = await this.availabilityRepo.findOne({
-    where: {
-      doctor: { doctor_id: doctorId },
-      date,
-      session,
-    },
-    relations: ['doctor'],
-  });
+  const exists: DoctorAvailability | null = await this.availabilityRepo.findOne({
+  where: {
+    doctor: { doctor_id: doctorId },
+    date,
+    session,
+  },
+  relations: ['doctor'], // ✅ you already have this, perfect
+});
 
   if (exists) {
     throw new BadRequestException(
@@ -107,21 +107,39 @@ export class DoctorService {
     );
   }
 
-  const slots = generateTimeSlots(start_time, end_time);
+  const doctor = await this.doctorRepository.findOne({
+  where: { doctor_id: doctorId },
+});
+
+  if (!doctor) {
+    throw new NotFoundException(`Doctor with ID ${doctorId} not found`);
+  }
+
+  const slots = generateAvailableSlots(
+    start_time,
+    end_time,
+    doctor.schedule_type,
+    doctor.slot_duration,
+    doctor.patients_per_slot,
+    doctor.consulting_time_per_patient
+  );
+
+  const timeSlots = slots.map(slot => slot.time); // ✅ Convert to string[]
 
   const record = this.availabilityRepo.create({
-    doctor: { doctor_id: doctorId },
+    doctor: { doctor_id: doctorId } as any,
     date,
     weekday,
     session,
     start_time,
     end_time,
-    time_slots: slots,
-    booked_slots: [], // ✅ FIX: Explicitly set empty array
+    time_slots: timeSlots,
+    booked_slots: [],
   });
 
   return await this.availabilityRepo.save(record);
 }
+
 
   async getAvailableSlots(doctorId: number, page = 1, limit = 5) {
     // Get doctor info to include schedule_type

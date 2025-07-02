@@ -8,6 +8,31 @@ export interface SlotInfo {
 }
 
 /**
+ * 🔥 LEGACY FUNCTION: Generate simple time slots (for backward compatibility)
+ * This generates basic time slot strings without booking information
+ */
+export function generateTimeSlots(startTime: string, endTime: string, intervalMinutes: number = 15): string[] {
+  const slots: string[] = [];
+  
+  const [startH, startM] = startTime.split(':').map(Number);
+  const [endH, endM] = endTime.split(':').map(Number);
+
+  let current = startH * 60 + startM;
+  const endTotal = endH * 60 + endM;
+
+  while (current < endTotal) {
+    const h = Math.floor(current / 60).toString().padStart(2, '0');
+    const m = (current % 60).toString().padStart(2, '0');
+    const timeSlot = `${h}:${m}`;
+    
+    slots.push(timeSlot);
+    current += intervalMinutes;
+  }
+
+  return slots;
+}
+
+/**
  * 🔥 FULLY DYNAMIC: Generate slots using doctor's actual configuration
  */
 export function generateAvailableSlots(
