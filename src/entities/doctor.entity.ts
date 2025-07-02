@@ -58,21 +58,23 @@ export class Doctor {
   @Column({ 
     type: 'enum', 
     enum: ['stream', 'wave'], 
-    default: 'stream' 
+    default: 'wave' 
   })
   schedule_type: 'stream' | 'wave';
 
   @OneToMany(() => DoctorAvailability, (availability) => availability.doctor)
   availabilities: DoctorAvailability[];
 
-@Column({ default: 15 })
-slot_duration: number; // Minutes per slot (10, 15, 20, 30)
+  // Wave: 30-minute slots with 3 patients = 10 min per patient
+  // Stream: 10-minute slots with 1 patient = 10 min per patient
+  @Column({ default: 15 })
+  slot_duration: number;
 
-@Column({ default: 1 })
-patients_per_slot: number; // For wave scheduling (1, 2, 3, 4)
+  @Column({ default: 3 })
+  patients_per_slot: number;
 
-@Column({ default: 15 })
-consulting_time_per_patient: number; // Minutes per patient consultation
+  @Column({ default: 10 })
+  consulting_time_per_patient: number;
 
 
 }
