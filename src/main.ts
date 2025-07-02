@@ -1,10 +1,28 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { AppDataSource } from './data-source';
 import { ValidationPipe } from '@nestjs/common';
 import * as session from 'express-session';
 import * as passport from 'passport';
 
 async function bootstrap() {
+  try {
+    // Initialize database connection
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize();
+      console.log('✅ Database connected successfully');
+    }
+    
+    // Run pending migrations automatically
+    console.log('🔄 Checking for pending migrations...');
+    await AppDataSource.runMigrations();
+    console.log('✅ Migrations completed successfully');
+    
+  } catch (error) {
+    console.error('❌ Database/Migration error:', error.message);
+    // Continue anyway - don't crash the app
+  }
+  
   const app = await NestFactory.create(AppModule);
 
   app.useGlobalPipes(new ValidationPipe());
