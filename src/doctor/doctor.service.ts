@@ -84,37 +84,67 @@ export class DoctorService {
   }
 
   // ✅ Step 3: Doctor sets availability
-  async createAvailability(doctorId: number, dto: CreateAvailabilityDto) {
+  async createAvailability(doctorId: number, dto: CreateAvailabilityDto, requestingUserId?: number) {
   const { date, weekday, session, start_time, end_time } = dto;
 
-  const today = new Date().toISOString().split('T')[0];
-  if (date < today) {
+  // ✅ 1. Validate date is not in the past
+  const today = new Date();
+  const selectedDate = new Date(date);
+  today.setHours(0, 0, 0, 0); // Reset time for accurate comparison
+  selectedDate.setHours(0, 0, 0, 0);
+  
+  if (selectedDate < today) {
     throw new BadRequestException('Cannot select a past date');
   }
 
-  const exists: DoctorAvailability | null = await this.availabilityRepo.findOne({
-  where: {
-    doctor: { doctor_id: doctorId },
-    date,
-    session,
-  },
-  relations: ['doctor'], // ✅ you already have this, perfect
-});
+  // ✅ 2. Validate time range
+  const [startH, startM] = start_time.split(':').map(Number);
+  const [endH, endM] = end_time.split(':').map(Number);
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
 
-  if (exists) {
-    throw new BadRequestException(
-      'Availability already exists for this date and session'
-    );
+  if (startMinutes >= endMinutes) {
+    throw new BadRequestException('Start time must be before end time');
   }
 
+  if (endMinutes - startMinutes < 30) {
+    throw new BadRequestException('Session must be at least 30 minutes long');
+  }
+
+  // ✅ 3. Find doctor and validate ownership (if userId provided)
   const doctor = await this.doctorRepository.findOne({
-  where: { doctor_id: doctorId },
-});
+    where: { doctor_id: doctorId },
+    relations: ['user'],
+  });
 
   if (!doctor) {
     throw new NotFoundException(`Doctor with ID ${doctorId} not found`);
   }
 
+  // ✅ 4. Check if doctor is setting their own availability
+  if (requestingUserId && doctor.user.id !== requestingUserId) {
+    throw new ForbiddenException('You can only set availability for your own profile');
+  }
+
+  // ✅ 5. Check for existing availability
+  const exists = await this.availabilityRepo.findOne({
+    where: {
+      doctor: { doctor_id: doctorId },
+      date,
+      session,
+    },
+  });
+
+  if (exists) {
+    throw new BadRequestException(
+      `Availability already exists for ${session} session on ${date}`
+    );
+  }
+
+  // ✅ 6. Validate doctor's schedule configuration
+  this.validateDoctorScheduleConfig(doctor);
+
+  // ✅ 7. Generate time slots using doctor's configuration
   const slots = generateAvailableSlots(
     start_time,
     end_time,
@@ -124,8 +154,9 @@ export class DoctorService {
     doctor.consulting_time_per_patient
   );
 
-  const timeSlots = slots.map(slot => slot.time); // ✅ Convert to string[]
+  const timeSlots = slots.map(slot => slot.time);
 
+  // ✅ 8. Create availability record
   const record = this.availabilityRepo.create({
     doctor: { doctor_id: doctorId } as any,
     date,
@@ -135,9 +166,65 @@ export class DoctorService {
     end_time,
     time_slots: timeSlots,
     booked_slots: [],
+    slot_bookings: {}, // Initialize empty bookings object
   });
 
-  return await this.availabilityRepo.save(record);
+  const savedRecord = await this.availabilityRepo.save(record);
+
+  return {
+    message: 'Availability created successfully',
+    availability: savedRecord,
+    generated_slots: slots.length,
+    schedule_type: doctor.schedule_type,
+    slot_duration: doctor.slot_duration,
+    patients_per_slot: doctor.patients_per_slot,
+  };
+}
+  private validateDoctorScheduleConfig(doctor: Doctor): void {
+  if (!doctor.schedule_type) {
+    throw new BadRequestException('Doctor must have a schedule_type set (stream or wave)');
+  }
+
+  if (!doctor.slot_duration || doctor.slot_duration < 5) {
+    throw new BadRequestException('Doctor must have a valid slot_duration (minimum 5 minutes)');
+  }
+
+  if (!doctor.patients_per_slot || doctor.patients_per_slot < 1) {
+    throw new BadRequestException('Doctor must have a valid patients_per_slot (minimum 1)');
+  }
+
+  if (!doctor.consulting_time_per_patient || doctor.consulting_time_per_patient < 5) {
+    throw new BadRequestException('Doctor must have a valid consulting_time_per_patient (minimum 5 minutes)');
+  }
+
+  // Wave scheduling validations
+  if (doctor.schedule_type === 'wave') {
+    const reportingInterval = Math.floor(doctor.slot_duration / doctor.patients_per_slot);
+    
+    if (reportingInterval < doctor.consulting_time_per_patient) {
+      throw new BadRequestException(
+        `Invalid wave configuration: Reporting interval (${reportingInterval} min) is less than consulting time (${doctor.consulting_time_per_patient} min). ` +
+        `Either increase slot_duration or reduce patients_per_slot.`
+      );
+    }
+    
+    if (doctor.patients_per_slot < 2) {
+      throw new BadRequestException('Wave scheduling requires at least 2 patients per slot');
+    }
+  }
+
+  // Stream scheduling validations
+  if (doctor.schedule_type === 'stream') {
+    if (doctor.patients_per_slot !== 1) {
+      throw new BadRequestException('Stream scheduling must have exactly 1 patient per slot');
+    }
+    
+    if (doctor.slot_duration < doctor.consulting_time_per_patient) {
+      throw new BadRequestException(
+        `Stream scheduling: slot_duration (${doctor.slot_duration} min) must be >= consulting_time_per_patient (${doctor.consulting_time_per_patient} min)`
+      );
+    }
+  }
 }
 
 
@@ -175,4 +262,6 @@ export class DoctorService {
       data,
     };
   }
+
+  
 }

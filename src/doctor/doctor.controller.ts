@@ -42,15 +42,17 @@ export class DoctorController {
     return this.doctorService.findOne(+id);
   }
 
-  @Post(':id/availability')
-  @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(Role.DOCTOR)
-  async setAvailability(
-    @Param('id') doctorId: string,
-    @Body() dto: CreateAvailabilityDto
-  ) {
-    return this.doctorService.createAvailability(+doctorId, dto);
-  }
+@Post(':id/availability')
+@UseGuards(AccessTokenGuard, RolesGuard)
+@Roles(Role.DOCTOR)
+async setAvailability(
+  @Param('id') doctorId: string,
+  @Body() dto: CreateAvailabilityDto,
+  @Req() req
+) {
+  // ✅ Pass the requesting user ID for ownership validation
+  return this.doctorService.createAvailability(+doctorId, dto, req.user.sub);
+}
 
   @Patch(':id/schedule-type')
   @UseGuards(AccessTokenGuard, RolesGuard)

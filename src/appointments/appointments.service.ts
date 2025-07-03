@@ -85,7 +85,42 @@ export class AppointmentsService {
   }
 
   // NEW: Get doctor's availability with real-time slot info
-  async getDoctorAvailability(doctorId: number, fromDate: string, toDate: string) {
+  // ✅ IMPROVED: getDoctorAvailability with proper validation
+async getDoctorAvailability(doctorId: number, fromDate: string, toDate: string) {
+  // ✅ 1. Validate doctor exists first
+  const doctor = await this.doctorRepo.findOne({
+    where: { doctor_id: doctorId },
+    relations: ['user']
+  });
+
+  if (!doctor) {
+    throw new NotFoundException(`Doctor with ID ${doctorId} not found`);
+  }
+
+  // ✅ 2. Validate date range
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (from < today) {
+    throw new BadRequestException('Cannot query availability for past dates');
+  }
+
+  if (to <= from) {
+    throw new BadRequestException('End date must be after start date');
+  }
+
+  // ✅ 3. Limit date range to prevent excessive queries
+  const maxDays = 90; // 3 months max
+  const diffTime = Math.abs(to.getTime() - from.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays > maxDays) {
+    throw new BadRequestException(`Date range too large. Maximum ${maxDays} days allowed.`);
+  }
+
+  // ✅ 4. Get availabilities
   const availabilities = await this.availabilityRepo.find({
     where: {
       doctor: { doctor_id: doctorId },
@@ -95,11 +130,23 @@ export class AppointmentsService {
     order: { date: 'ASC', session: 'ASC' }
   });
 
-  return availabilities.map(availability => {
-    // Validate doctor's configuration before processing
+  // ✅ 5. Return empty array if no availability set
+  if (availabilities.length === 0) {
+    return {
+      message: 'No availability found for the specified date range',
+      doctor_id: doctorId,
+      doctor_name: doctor.name,
+      schedule_type: doctor.schedule_type,
+      date_range: { from: fromDate, to: toDate },
+      availability: []
+    };
+  }
+
+  // ✅ 6. Process availability with real-time booking data
+  const processedAvailability = availabilities.map(availability => {
+    // Validate doctor's configuration
     this.validateDoctorSchedulingConfig(availability.doctor);
     
-    // Use doctor's actual configuration
     const maxSlotsPerSlot = availability.doctor.schedule_type === 'stream' 
       ? 1 
       : availability.doctor.patients_per_slot;
@@ -130,9 +177,22 @@ export class AppointmentsService {
       consulting_time_per_patient: availability.doctor.consulting_time_per_patient,
       reporting_interval_minutes: reportingInterval,
       available_slots: slotsWithAvailability.filter(slot => !slot.is_fully_booked),
-      all_slots: slotsWithAvailability
+      all_slots: slotsWithAvailability,
+      total_available_spots: slotsWithAvailability.reduce((sum, slot) => sum + slot.available_spots, 0),
+      total_slots: slotsWithAvailability.length
     };
   });
+
+  return {
+    doctor_id: doctorId,
+    doctor_name: doctor.name,
+    specialization: doctor.specialization,
+    schedule_type: doctor.schedule_type,
+    clinic_name: doctor.clinic_name,
+    date_range: { from: fromDate, to: toDate },
+    total_available_sessions: processedAvailability.length,
+    availability: processedAvailability
+  };
 }
 
   //  ENHANCED: Create appointment with realistic scheduling
@@ -359,61 +419,125 @@ private async handleWaveScheduling(
 
 
   //  NEW: Get patient's upcoming appointments
-  async getPatientUpcomingAppointments(patientUserId: number) {
-    const patient = await this.patientRepo.findOne({
-      where: { user: { id: patientUserId } },
-    });
+  // ✅ IMPROVED: Patient upcoming appointments with better filtering
+async getPatientUpcomingAppointments(patientUserId: number, limit: number = 10) {
+  const patient = await this.patientRepo.findOne({
+    where: { user: { id: patientUserId } },
+    relations: ['user']
+  });
 
-    if (!patient) {
-      throw new NotFoundException('Patient profile not found');
-    }
+  if (!patient) {
+    throw new NotFoundException('Patient profile not found');
+  }
 
-    const appointments = await this.appointmentRepo.find({
-      where: { 
-        patient: { patient_id: patient.patient_id },
-        scheduled_on: Between(new Date(), new Date('2026-12-31')), // Future appointments
-        appointment_status: In(['confirmed', 'pending'])
-      },
-      relations: ['doctor'],
-      order: { scheduled_on: 'ASC' },
-    });
+  // ✅ Better date range - next 6 months
+  const now = new Date();
+  const futureLimit = new Date();
+  futureLimit.setMonth(futureLimit.getMonth() + 6);
 
-    return appointments.map(apt => ({
+  const appointments = await this.appointmentRepo.find({
+    where: { 
+      patient: { patient_id: patient.patient_id },
+      scheduled_on: Between(now, futureLimit),
+      appointment_status: In(['confirmed', 'pending'])
+    },
+    relations: ['doctor', 'doctor.user'],
+    order: { scheduled_on: 'ASC' },
+    take: limit
+  });
+
+  return {
+    patient_id: patient.patient_id,
+    patient_name: `${patient.first_name} ${patient.last_name}`,
+    total_upcoming: appointments.length,
+    appointments: appointments.map(apt => ({
       appointment_id: apt.appointment_id,
       scheduled_on: apt.scheduled_on,
+      reporting_time: apt.reporting_time, // ✅ Include reporting time
       doctor_name: apt.doctor.name,
       specialization: apt.doctor.specialization,
       clinic_name: apt.doctor.clinic_name,
-      status: apt.appointment_status,
-      reason: apt.reason,
-      slot_position: apt.slot_position,
-      session: apt.session
-    }));
-  }
-
-  //  NEW: Get doctor's upcoming appointments
-  async getDoctorUpcomingAppointments(doctorId: number) {
-    const appointments = await this.appointmentRepo.find({
-      where: { 
-        doctor: { doctor_id: doctorId },
-        scheduled_on: Between(new Date(), new Date('2026-12-31')), // Future appointments
-        appointment_status: In(['confirmed', 'pending'])
-      },
-      relations: ['patient'],
-      order: { scheduled_on: 'ASC' },
-    });
-
-    return appointments.map(apt => ({
-      appointment_id: apt.appointment_id,
-      scheduled_on: apt.scheduled_on,
-      patient_name: `${apt.patient.first_name} ${apt.patient.last_name}`,
+      clinic_address: apt.doctor.clinic_address,
       status: apt.appointment_status,
       reason: apt.reason,
       slot_position: apt.slot_position,
       session: apt.session,
-      duration_minutes: apt.duration_minutes
-    }));
+      duration_minutes: apt.duration_minutes,
+      schedule_type: apt.doctor.schedule_type,
+      time_interval_minutes: apt.time_interval_minutes,
+      // ✅ Helpful computed fields
+      is_today: format(apt.scheduled_on, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'),
+      days_until_appointment: Math.ceil((apt.scheduled_on.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    }))
+  };
+}
+
+// ✅ IMPROVED: Doctor upcoming appointments with patient info
+async getDoctorUpcomingAppointments(doctorId: number, limit: number = 20) {
+  const doctor = await this.doctorRepo.findOne({
+    where: { doctor_id: doctorId },
+    relations: ['user']
+  });
+
+  if (!doctor) {
+    throw new NotFoundException('Doctor profile not found');
   }
+
+  // ✅ Better date range - next 3 months for doctors
+  const now = new Date();
+  const futureLimit = new Date();
+  futureLimit.setMonth(futureLimit.getMonth() + 3);
+
+  const appointments = await this.appointmentRepo.find({
+    where: { 
+      doctor: { doctor_id: doctorId },
+      scheduled_on: Between(now, futureLimit),
+      appointment_status: In(['confirmed', 'pending'])
+    },
+    relations: ['patient', 'patient.user'],
+    order: { scheduled_on: 'ASC' },
+    take: limit
+  });
+
+  // ✅ Group appointments by date for better organization
+  const appointmentsByDate = appointments.reduce((acc, apt) => {
+    const dateKey = format(apt.scheduled_on, 'yyyy-MM-dd');
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(apt);
+    return acc;
+  }, {} as Record<string, typeof appointments>);
+
+  return {
+    doctor_id: doctorId,
+    doctor_name: doctor.name,
+    specialization: doctor.specialization,
+    schedule_type: doctor.schedule_type,
+    total_upcoming: appointments.length,
+    appointments_by_date: Object.entries(appointmentsByDate).map(([date, dayAppointments]) => ({
+      date,
+      weekday: format(new Date(date), 'EEEE'),
+      appointment_count: dayAppointments.length,
+      appointments: dayAppointments.map(apt => ({
+        appointment_id: apt.appointment_id,
+        scheduled_on: apt.scheduled_on,
+        reporting_time: apt.reporting_time,
+        patient_name: `${apt.patient.first_name} ${apt.patient.last_name}`,
+        patient_email: apt.patient.user.email,
+        status: apt.appointment_status,
+        reason: apt.reason,
+        slot_position: apt.slot_position,
+        session: apt.session,
+        duration_minutes: apt.duration_minutes,
+        time_interval_minutes: apt.time_interval_minutes,
+        // ✅ Computed fields for doctor's convenience
+        scheduled_time: format(apt.scheduled_on, 'HH:mm'),
+        reporting_time_formatted: apt.reporting_time ? format(apt.reporting_time, 'HH:mm') : '',
+      }))
+    }))
+  };
+}
 
   //  NEW: Helper to get doctor ID from user ID
   async getDoctorIdByUserId(userId: number): Promise<number> {
