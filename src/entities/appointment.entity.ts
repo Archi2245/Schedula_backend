@@ -11,7 +11,7 @@ export class Appointment {
   appointment_id: number;
 
   // 🔥 CHANGE: Combined date and time into one field
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamp', nullable: true })
   scheduled_on: Date; // Stores both date and time
 
   @Column()
