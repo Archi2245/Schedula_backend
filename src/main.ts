@@ -13,24 +13,32 @@ async function bootstrap() {
       console.log('✅ Database connected successfully');
     }
     
-    // Only run migrations in development
-    if (process.env.NODE_ENV !== 'production') {
+    // Only run migrations in development or when explicitly needed
+    if (process.env.NODE_ENV !== 'production' || process.env.RUN_MIGRATIONS === 'true') {
       console.log('🔄 Checking for pending migrations...');
-      await AppDataSource.runMigrations();
-      console.log('✅ Migrations completed successfully');
+      try {
+        await AppDataSource.runMigrations();
+        console.log('✅ Migrations completed successfully');
+      } catch (migrationError) {
+        console.error('❌ Migration failed:', migrationError.message);
+        if (migrationError.message.includes('already exists')) {
+          console.log('🔄 Tables already exist, trying to sync schema...');
+          // Try to sync the schema to add missing columns
+          try {
+            await AppDataSource.synchronize();
+            console.log('✅ Schema synchronized successfully');
+          } catch (syncError) {
+            console.error('❌ Schema sync failed:', syncError.message);
+          }
+        }
+      }
     } else {
       console.log('⏭️ Skipping migrations in production');
     }
     
   } catch (error) {
     console.error('❌ Database/Migration error:', error.message);
-    
-    // If the error is about existing relations, it's likely safe to continue
-    if (error.message.includes('already exists')) {
-      console.log('🔄 Tables already exist, continuing with app startup...');
-    } else {
-      console.error('🚨 Unexpected migration error, but continuing anyway...');
-    }
+    console.log('🔄 Continuing with app startup...');
   }
   
   const app = await NestFactory.create(AppModule);
