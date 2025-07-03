@@ -7,22 +7,38 @@ import { User } from './entities/user.entity';
 import { TimeSlot } from './entities/time-slot.entity';
 import { DoctorAvailability } from './entities/doctor-availability.entity';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  // Use DATABASE_URL if available (for production/Render), otherwise use individual connection params
+  ...(process.env.DATABASE_URL 
+    ? {
+        url: process.env.DATABASE_URL,
+        ssl: {
+          rejectUnauthorized: false,
+        },
+      }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      }
+  ),
   entities: [Doctor, Patient, User, Appointment, TimeSlot, DoctorAvailability],
-  migrations: ['src/migrations/*.ts'],
+  migrations: isProduction ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
   synchronize: false,
 });
 
-AppDataSource.initialize()
-  .then(() => {
-    console.log('Data Source has been initialized!');
-  })
-  .catch((err) => {
-    console.error('Error during Data Source initialization:', err);
-  });
+// Only initialize if not already initialized
+if (!AppDataSource.isInitialized) {
+  AppDataSource.initialize()
+    .then(() => {
+      console.log('Data Source has been initialized!');
+    })
+    .catch((err) => {
+      console.error('Error during Data Source initialization:', err);
+    });
+}
