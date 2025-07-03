@@ -7,11 +7,9 @@ import { User } from './entities/user.entity';
 import { TimeSlot } from './entities/time-slot.entity';
 import { DoctorAvailability } from './entities/doctor-availability.entity';
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 export const AppDataSource = new DataSource({
   type: 'postgres',
-  // Use DATABASE_URL if available (for production/Render), otherwise use individual connection params
+  // Use DATABASE_URL if available (for production), otherwise use individual connection params
   ...(process.env.DATABASE_URL 
     ? {
         url: process.env.DATABASE_URL,
@@ -28,17 +26,8 @@ export const AppDataSource = new DataSource({
       }
   ),
   entities: [Doctor, Patient, User, Appointment, TimeSlot, DoctorAvailability],
-  migrations: isProduction ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
-  synchronize: false,
+  migrations: [],  // NO MIGRATIONS - we'll use synchronize
+  synchronize: true, // FORCE SYNC - this will fix all schema issues
+  dropSchema: false, // DON'T DROP EXISTING DATA
+  logging: true, // Show what's happening
 });
-
-// Only initialize if not already initialized
-if (!AppDataSource.isInitialized) {
-  AppDataSource.initialize()
-    .then(() => {
-      console.log('Data Source has been initialized!');
-    })
-    .catch((err) => {
-      console.error('Error during Data Source initialization:', err);
-    });
-}

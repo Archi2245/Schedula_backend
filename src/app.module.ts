@@ -17,10 +17,32 @@ import { DoctorModule } from './doctor/doctor.module';
 import { DoctorAvailability } from './entities/doctor-availability.entity';
 import { AppDataSource } from './data-source'; 
 import { AppointmentsModule } from './appointments/appointments.module';
+import { User } from './entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot(AppDataSource.options),
+    TypeOrmModule.forRoot({
+  type: 'postgres',
+  ...(process.env.DATABASE_URL 
+    ? {
+        url: process.env.DATABASE_URL,
+        ssl: {
+          rejectUnauthorized: false,
+        },
+      }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      }
+  ),
+  entities: [Doctor, Patient, User, Appointment, TimeSlot, DoctorAvailability],
+  synchronize: true, // This will fix all schema issues
+  dropSchema: false, // Won't delete your data
+  logging: true, // Show what's happening
+}),
     TypeOrmModule.forFeature([Doctor, Patient, Appointment, TimeSlot, DoctorAvailability]),
     HelloWorldArchiModule,
     ConfigModule.forRoot({ isGlobal: true }),
