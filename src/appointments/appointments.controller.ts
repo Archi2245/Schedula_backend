@@ -15,13 +15,14 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../types/roles.enum';
 import { GetCurrentUserId } from '../auth/decorator/get-current-user-id.decorator';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('appointments')
 @UseGuards(AccessTokenGuard, RolesGuard)
 export class AppointmentsController {
   constructor(private appointmentsService: AppointmentsService) {}
 
-  //  POST /appointments - Book an appointment (Patients only)
+  // POST /appointments - Book an appointment (Patients only)
   @Post()
   @Roles(Role.PATIENT)
   async createAppointment(
@@ -35,39 +36,52 @@ export class AppointmentsController {
   @Get('patient')
   @Roles(Role.PATIENT)
   async getPatientAppointments(@GetCurrentUserId() userId: number) {
-    return this.appointmentsService.getPatientAppointments(userId);
+    return this.appointmentsService.getPatientUpcomingAppointments(userId);
   }
 
-  //  GET /appointments/doctor - Get doctor's appointments
+  // GET /appointments/doctor - Get doctor's appointments
   @Get('doctor')
   @Roles(Role.DOCTOR)
-  async getDoctorAppointments(@Req() req) {
-    return { message: 'Doctor appointments endpoint - implement doctor ID lookup' };
+  async getDoctorAppointments(@GetCurrentUserId() userId: number) {
+    const doctorId = await this.appointmentsService.getDoctorIdByUserId(userId);
+    return this.appointmentsService.getDoctorUpcomingAppointments(doctorId);
   }
 
-  //  Get all doctors with basic info
-@Get('doctors')
-async getAllDoctors() {
-  return this.appointmentsService.getAllDoctors();
-}
+  // 🔥 CONSOLIDATED: Single endpoint for doctor availability
+  // GET /appointments/doctors/:doctorId/availability
+  @Get('doctors/:doctorId/availability')
+  @Public() // Allow both patients and public access
+  async getDoctorAvailability(
+    @Param('doctorId') doctorId: number,
+    @Query('from') fromDate?: string,
+    @Query('to') toDate?: string,
+    @Query('detailed') detailed?: string // ?detailed=true for booking details
+  ) {
+    // Default to next 30 days if not specified
+    const from = fromDate || new Date().toISOString().split('T')[0];
+    const to = toDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const includeBookingDetails = detailed === 'true';
+    
+    return this.appointmentsService.getDoctorAvailability(doctorId, from, to, includeBookingDetails);
+  }
 
-//  Get specific doctor details
-@Get('doctors/:doctorId')
-async getDoctorDetails(@Param('doctorId') doctorId: number) {
-  return this.appointmentsService.getDoctorDetails(doctorId);
-}
+  // 🔥 SIMPLIFIED: Get all doctors with basic info
+  @Get('doctors')
+  @Public()
+  async getAllDoctors() {
+    return this.appointmentsService.getAllDoctors();
+  }
 
-//  Get doctor's availability for specific date range
-@Get('doctors/:doctorId/availability')
-async getDoctorAvailability(
-  @Param('doctorId') doctorId: number,
-  @Query('from') fromDate: string,
-  @Query('to') toDate: string,
-) {
-  return this.appointmentsService.getDoctorAvailability(doctorId, fromDate, toDate);
-}
+  // 🔥 SIMPLIFIED: Get specific doctor details
+  @Get('doctors/:doctorId')
+  @Public()
+  async getDoctorDetails(@Param('doctorId') doctorId: number) {
+    return this.appointmentsService.getDoctorDetails(doctorId);
+  }
 
-@Get('view-appointments')
+  // GET /appointments/view-appointments - Unified appointment view
+  @Get('view-appointments')
   async getUpcomingAppointments(@GetCurrentUserId() userId: number, @Req() req) {
     const userRole = req.user.role;
     
