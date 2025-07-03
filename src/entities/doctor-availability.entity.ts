@@ -21,7 +21,7 @@ export class DoctorAvailability {
   @Column()
   session: 'morning' | 'evening';
 
-  @Column("text", { array: true })
+  @Column("text", { array: true, nullable: true })
   booked_slots: string[];
 
   @Column()
