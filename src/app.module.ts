@@ -15,7 +15,7 @@ import { ConfigModule } from '@nestjs/config';
 import { DoctorService } from './doctor/doctor.service';
 import { DoctorModule } from './doctor/doctor.module';
 import { DoctorAvailability } from './entities/doctor-availability.entity';
-import { AppDataSource } from './typeorm.config'; 
+import { AppDataSource } from './data-source'; 
 import { AppointmentsModule } from './appointments/appointments.module';
 
 @Module({
