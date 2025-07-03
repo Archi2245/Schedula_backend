@@ -24,10 +24,10 @@ export class DoctorAvailability {
   @Column("text", { array: true, nullable: true })
   booked_slots: string[];
 
-  @Column()
+  @Column({ nullable: true })
   start_time: string; // e.g., "09:00"
 
-  @Column()
+  @Column({ nullable: true })
   end_time: string; // e.g., "12:00"
 
   // 🔥 NEW: Enhanced slot management
