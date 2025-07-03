@@ -13,8 +13,6 @@ import { DoctorAvailability } from '../entities/doctor-availability.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { format, addMinutes, parseISO, isAfter } from 'date-fns';
 
-
-
 @Injectable()
 export class AppointmentsService {
   constructor(
@@ -205,7 +203,7 @@ export class AppointmentsService {
   let slotPosition = 1;
 
   if (doctor.schedule_type === 'stream') {
-    // STREAM: Use doctor's preferred slot duration (10, 15, 20 mins)
+    // STREAM: Use doctor's preferred slot duration
     const result = await this.handleStreamScheduling(availability, timeStr, doctor);
     actualStartTime = result.actualStartTime;
     slotPosition = result.position;
@@ -216,13 +214,13 @@ export class AppointmentsService {
     slotPosition = result.position;
   }
 
-  // 9. Create the appointment with calculated consulting time
+  // 9. Create the appointment with enhanced scheduling info
   const appointment = this.appointmentRepo.create({
     scheduled_on: scheduledDateTime, // Original requested time slot
-    reporting_time: actualStartTime, // Actual time patient should arrive
+    reporting_time: actualStartTime, // ✅ Actual time patient should arrive
     weekday: dto.weekday,
     session: dto.session,
-    duration_minutes: doctor.consulting_time_per_patient, // Use doctor's consulting time
+    duration_minutes: doctor.consulting_time_per_patient,
     slot_position: slotPosition,
     time_interval_minutes: this.calculateReportingInterval(doctor),
     reason: dto.reason,
@@ -232,29 +230,32 @@ export class AppointmentsService {
     appointment_status: 'confirmed',
   });
 
-    const savedAppointment = await this.appointmentRepo.save(appointment);
+  const savedAppointment = await this.appointmentRepo.save(appointment);
 
-    // 10. Update availability slot_bookings
-    if (!availability.slot_bookings) {
-      availability.slot_bookings = {};
-    }
-
-    availability.slot_bookings[timeStr] = (availability.slot_bookings[timeStr] || 0) + 1;
-    await this.availabilityRepo.save(availability);
-
-    return {
-      message: 'Appointment booked successfully',
-      appointment: {
-        appointment_id: savedAppointment.appointment_id,
-        scheduled_on: savedAppointment.scheduled_on,
-        doctor_name: doctor.name,
-        specialization: doctor.specialization,
-        status: savedAppointment.appointment_status,
-        slot_position: savedAppointment.slot_position,
-        duration_minutes: savedAppointment.duration_minutes
-      },
-    };
+  // 10. Update availability slot_bookings
+  if (!availability.slot_bookings) {
+    availability.slot_bookings = {};
   }
+  
+  availability.slot_bookings[timeStr] = (availability.slot_bookings[timeStr] || 0) + 1;
+  await this.availabilityRepo.save(availability);
+
+  return {
+    message: 'Appointment booked successfully',
+    appointment: {
+      appointment_id: savedAppointment.appointment_id,
+      scheduled_on: savedAppointment.scheduled_on,
+      reporting_time: savedAppointment.reporting_time, // ✅ Include reporting time
+      doctor_name: doctor.name,
+      specialization: doctor.specialization,
+      status: savedAppointment.appointment_status,
+      slot_position: savedAppointment.slot_position,
+      duration_minutes: savedAppointment.duration_minutes,
+      schedule_type: doctor.schedule_type,
+      time_interval_minutes: savedAppointment.time_interval_minutes
+    },
+  };
+}
 
   private calculateReportingInterval(doctor: Doctor): number {
   if (doctor.schedule_type === 'stream') {
@@ -314,31 +315,44 @@ export class AppointmentsService {
 }
 
   //  ENHANCED: Handle Wave Scheduling with realistic time assignment
-  private async handleWaveScheduling(
+  
+private async handleWaveScheduling(
   availability: DoctorAvailability,
   requestedDateTime: Date,
   doctor: Doctor
 ): Promise<{ position: number; actualStartTime: Date }> {
   const slotKey = format(requestedDateTime, 'HH:mm');
+  
+  // ✅ Get current bookings for this specific slot
   const currentBookings = availability.slot_bookings[slotKey] || 0;
   
-  // Use doctor's configurable patients per slot
+  // ✅ Use doctor's configurable patients per slot
   const maxPatients = doctor.patients_per_slot;
   
   if (currentBookings >= maxPatients) {
     throw new ConflictException(
-      `Time slot is fully booked (max ${maxPatients} patients per ${doctor.slot_duration}-minute block)`
+      `Time slot ${slotKey} is fully booked (max ${maxPatients} patients per ${doctor.slot_duration}-minute block)`
     );
   }
   
+  // ✅ Calculate position (1st, 2nd, 3rd patient in this slot)
   const position = currentBookings + 1;
   
-  // 🔥 DYNAMIC CALCULATION: reporting_interval = slot_duration / patients_per_slot
+  // ✅ Calculate reporting interval dynamically
   const reportingInterval = Math.floor(doctor.slot_duration / doctor.patients_per_slot);
   
-  // Calculate actual reporting time based on position
+  // ✅ Calculate actual reporting time based on position
   const minutesToAdd = (position - 1) * reportingInterval;
   const actualStartTime = addMinutes(requestedDateTime, minutesToAdd);
+  
+  console.log(`Wave Scheduling Debug:
+    - Slot: ${slotKey}
+    - Current bookings: ${currentBookings}
+    - Position: ${position}
+    - Reporting interval: ${reportingInterval} min
+    - Original time: ${format(requestedDateTime, 'HH:mm')}
+    - Actual reporting time: ${format(actualStartTime, 'HH:mm')}
+  `);
   
   return { position, actualStartTime };
 }
@@ -424,27 +438,65 @@ export class AppointmentsService {
     return this.getDoctorUpcomingAppointments(doctorId);
   }
 
-  private validateDoctorSchedulingConfig(doctor: Doctor): void {
+  
+private validateDoctorSchedulingConfig(doctor: Doctor): void {
+  // Validate wave scheduling
   if (doctor.schedule_type === 'wave') {
     const reportingInterval = Math.floor(doctor.slot_duration / doctor.patients_per_slot);
     
     if (reportingInterval < doctor.consulting_time_per_patient) {
       throw new BadRequestException(
-        `Invalid configuration: Reporting interval (${reportingInterval} min) is less than consulting time per patient (${doctor.consulting_time_per_patient} min). ` +
+        `Invalid wave configuration: Reporting interval (${reportingInterval} min) is less than consulting time per patient (${doctor.consulting_time_per_patient} min). ` +
         `Either increase slot_duration (${doctor.slot_duration}) or decrease patients_per_slot (${doctor.patients_per_slot}).`
       );
     }
     
     if (reportingInterval < 5) {
       throw new BadRequestException(
-        `Invalid configuration: Reporting interval (${reportingInterval} min) is too short. Minimum 5 minutes between patients required.`
+        `Invalid wave configuration: Reporting interval (${reportingInterval} min) is too short. Minimum 5 minutes between patients required.`
+      );
+    }
+    
+    // ✅ NEW: Validate patients_per_slot for wave
+    if (doctor.patients_per_slot < 2) {
+      throw new BadRequestException(
+        'Wave scheduling requires at least 2 patients per slot. Use stream scheduling for single patients.'
       );
     }
   }
   
-  if (doctor.schedule_type === 'stream' && doctor.slot_duration < doctor.consulting_time_per_patient) {
+  // Validate stream scheduling
+  if (doctor.schedule_type === 'stream') {
+    if (doctor.slot_duration < doctor.consulting_time_per_patient) {
+      throw new BadRequestException(
+        `Invalid stream configuration: Slot duration (${doctor.slot_duration} min) is less than consulting time per patient (${doctor.consulting_time_per_patient} min).`
+      );
+    }
+    
+    // ✅ NEW: Ensure stream uses 1 patient per slot
+    if (doctor.patients_per_slot !== 1) {
+      throw new BadRequestException(
+        'Stream scheduling must have exactly 1 patient per slot.'
+      );
+    }
+  }
+  
+  // ✅ NEW: General validations
+  if (doctor.slot_duration < 5 || doctor.slot_duration > 120) {
     throw new BadRequestException(
-      `Invalid configuration: Slot duration (${doctor.slot_duration} min) is less than consulting time per patient (${doctor.consulting_time_per_patient} min).`
+      'Slot duration must be between 5 and 120 minutes.'
+    );
+  }
+  
+  if (doctor.consulting_time_per_patient < 5 || doctor.consulting_time_per_patient > 60) {
+    throw new BadRequestException(
+      'Consulting time per patient must be between 5 and 60 minutes.'
+    );
+  }
+  
+  if (doctor.patients_per_slot < 1 || doctor.patients_per_slot > 10) {
+    throw new BadRequestException(
+      'Patients per slot must be between 1 and 10.'
     );
   }
 }

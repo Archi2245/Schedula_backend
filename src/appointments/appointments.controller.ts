@@ -68,17 +68,16 @@ async getDoctorAvailability(
 }
 
 @Get('view-appointments')
-@Roles(Role.PATIENT)
-async getPatientUpcomingAppointments(@GetCurrentUserId() userId: number) {
-  return this.appointmentsService.getPatientUpcomingAppointments(userId);
-}
-
-@Get('view-appointments')
-@Roles(Role.DOCTOR)
-async getDoctorUpcomingAppointments(@GetCurrentUserId() userId: number) {
-  const doctorId = await this.appointmentsService.getDoctorIdByUserId(userId);
-  return this.appointmentsService.getDoctorUpcomingAppointments(doctorId);
-}
-
-  
+  async getUpcomingAppointments(@GetCurrentUserId() userId: number, @Req() req) {
+    const userRole = req.user.role;
+    
+    if (userRole === Role.PATIENT) {
+      return this.appointmentsService.getPatientUpcomingAppointments(userId);
+    } else if (userRole === Role.DOCTOR) {
+      const doctorId = await this.appointmentsService.getDoctorIdByUserId(userId);
+      return this.appointmentsService.getDoctorUpcomingAppointments(doctorId);
+    }
+    
+    throw new Error('Invalid user role');
+  }
 }
