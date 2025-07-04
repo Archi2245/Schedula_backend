@@ -7592,7 +7592,7 @@ __metadata:
     ts-loader: "npm:^9.5.2"
     ts-node: "npm:^10.9.2"
     tsconfig-paths: "npm:^4.2.0"
-    typeorm: "npm:^0.3.17"
+    typeorm: "npm:^0.3.25"
     typescript: "npm:^5.7.3"
     typescript-eslint: "npm:^8.20.0"
     webpack: "npm:^5.99.9"
@@ -8511,7 +8511,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typeorm@npm:^0.3.17":
+"typeorm@npm:^0.3.25":
   version: 0.3.25
   resolution: "typeorm@npm:0.3.25"
   dependencies:

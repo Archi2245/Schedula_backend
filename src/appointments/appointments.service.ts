@@ -697,5 +697,27 @@ private validateDoctorSchedulingConfig(doctor: Doctor): void {
   async getDetailedAvailability(doctorId: number, fromDate: string, toDate: string) {
     return this.getDoctorAvailability(doctorId, fromDate, toDate, true); // Detailed version
   }
+
+  // ✅ Check if a slot has any confirmed/pending appointments in a given time range
+async hasAppointmentsInSlot(
+  doctorId: number,
+  date: string,
+  consultingStartTime: string,
+  consultingEndTime: string
+): Promise<boolean> {
+  const startDateTime = new Date(`${date}T${consultingStartTime}`);
+  const endDateTime = new Date(`${date}T${consultingEndTime}`);
+
+  const appointments = await this.appointmentRepo.find({
+    where: {
+      doctor: { doctor_id: doctorId },
+      scheduled_on: Between(startDateTime, endDateTime),
+      appointment_status: In(['confirmed', 'pending']),
+    },
+  });
+
+  return appointments.length > 0;
+}
+
 }
 

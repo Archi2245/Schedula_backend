@@ -94,4 +94,23 @@ export class AppointmentsController {
     
     throw new Error('Invalid user role');
   }
+
+  // (Optional) Check if appointments exist in a time range for a slot
+@Get('check-slot-conflict')
+@Roles(Role.DOCTOR)
+async checkSlotConflict(
+  @Query('doctorId') doctorId: number,
+  @Query('date') date: string,
+  @Query('start') startTime: string,
+  @Query('end') endTime: string,
+) {
+  const conflict = await this.appointmentsService.hasAppointmentsInSlot(
+    Number(doctorId),
+    date,
+    startTime,
+    endTime,
+  );
+
+  return { conflict };
+}
 }

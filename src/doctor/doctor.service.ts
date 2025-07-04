@@ -13,6 +13,7 @@ import { CreateSlotDto } from './dto/create-slot.dto';
 import { UpdateSlotDto } from './dto/update-slot.dto';
 import { SlotQueryDto } from './dto/slot-query.dto';
 import { UpdateScheduleTypeDto } from './dto/update-schedule-type.dto';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
 export class DoctorService {
@@ -22,6 +23,8 @@ export class DoctorService {
 
     @InjectRepository(DoctorAvailability)
     private availabilityRepo: Repository<DoctorAvailability>,
+
+    private appointmentsService: AppointmentsService,
   ) {}
 
   // 🔍 Get all doctors (with optional search)
@@ -188,11 +191,18 @@ export class DoctorService {
     }
 
     // 2. Check if slot can be modified
-    if (!slot.canBeModified()) {
-      throw new ConflictException(
-        'Cannot modify this slot because appointments are already booked'
-      );
-    }
+    const hasAppointments = await this.appointmentsService.hasAppointmentsInSlot(
+  doctorId,
+  slot.date,
+  slot.consulting_start_time,
+  slot.consulting_end_time
+);
+
+if (hasAppointments) {
+  throw new ConflictException(
+    'You cannot modify this slot because an appointment is already booked in this session.'
+  );
+}
 
     // 3. Validate updates
     const updatedStartTime = dto.consulting_start_time || slot.consulting_start_time;
@@ -279,11 +289,19 @@ export class DoctorService {
       throw new ForbiddenException('You can only delete your own slots');
     }
 
-    if (!slot.canBeModified()) {
-      throw new ConflictException(
-        'Cannot delete this slot because appointments are already booked'
-      );
-    }
+    const hasAppointments = await this.appointmentsService.hasAppointmentsInSlot(
+  doctorId,
+  slot.date,
+  slot.consulting_start_time,
+  slot.consulting_end_time
+);
+
+if (hasAppointments) {
+  throw new ConflictException(
+    'You cannot delete this slot because an appointment is already booked in this session.'
+  );
+}
+
 
     await this.availabilityRepo.remove(slot);
 
