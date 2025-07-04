@@ -7,8 +7,6 @@ import { TimeSlot } from './time-slot.entity';
 import { User } from './user.entity';
 import { DoctorAvailability } from './doctor-availability.entity';
 
-// Enhanced doctor.entity.ts with proper defaults
-
 @Entity()
 export class Doctor {
   @PrimaryGeneratedColumn()
@@ -67,50 +65,30 @@ export class Doctor {
   @OneToMany(() => DoctorAvailability, (availability) => availability.doctor)
   availabilities: DoctorAvailability[];
 
-  // ✅ FIXED: Better defaults for wave scheduling
-  @Column({ default: 30 }) // 30-minute slots work well for wave
-  slot_duration: number;
+  // 🔥 REMOVED: Global slot configuration (now per-slot)
+  // These are now set individually for each slot in DoctorAvailability
+  
+  // 🔥 NEW: Default consulting time per patient (used for validation)
+  @Column({ default: 10 })
+  default_consulting_time_per_patient: number;
 
-  @Column({ default: 3 }) // 3 patients per 30-min slot = 10 min intervals
-  patients_per_slot: number;
-
-  @Column({ default: 10 }) // 10 minutes consulting time per patient
-  consulting_time_per_patient: number;
-
-  // ✅ NEW: Add validation constraint
-  @Column({ type: 'boolean', default: true })
-  is_configuration_valid: boolean;
-
-  // ✅ NEW: Helper method to validate configuration
-  validateConfiguration(): { isValid: boolean; errors: string[] } {
+  // 🔥 NEW: Helper method to validate if doctor can create slots
+  canCreateSlots(): { canCreate: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    if (this.schedule_type === 'wave') {
-      const interval = Math.floor(this.slot_duration / this.patients_per_slot);
-      
-      if (interval < this.consulting_time_per_patient) {
-        errors.push(`Reporting interval (${interval} min) < consulting time (${this.consulting_time_per_patient} min)`);
-      }
-      
-      if (interval < 5) {
-        errors.push(`Reporting interval (${interval} min) too short. Minimum 5 minutes.`);
-      }
-      
-      if (this.patients_per_slot < 2) {
-        errors.push('Wave scheduling requires at least 2 patients per slot.');
-      }
+    if (!this.schedule_type) {
+      errors.push('Doctor must have a schedule_type set (stream or wave)');
     }
     
-    if (this.schedule_type === 'stream') {
-      if (this.slot_duration < this.consulting_time_per_patient) {
-        errors.push(`Slot duration (${this.slot_duration} min) < consulting time (${this.consulting_time_per_patient} min)`);
-      }
-      
-      if (this.patients_per_slot !== 1) {
-        errors.push('Stream scheduling must have exactly 1 patient per slot.');
-      }
+    if (!this.default_consulting_time_per_patient || this.default_consulting_time_per_patient < 5) {
+      errors.push('Doctor must have a valid default_consulting_time_per_patient (minimum 5 minutes)');
     }
     
-    return { isValid: errors.length === 0, errors };
+    return { canCreate: errors.length === 0, errors };
+  }
+
+  // 🔥 NEW: Helper method to get default patients per slot based on schedule type
+  getDefaultPatientsPerSlot(): number {
+    return this.schedule_type === 'stream' ? 1 : 3;
   }
 }
