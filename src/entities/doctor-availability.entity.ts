@@ -79,6 +79,8 @@ export class DoctorAvailability {
 
   @UpdateDateColumn()
   updated_at: Date;
+  time_slots: any;
+  appointments: any;
 
   // 🔥 NEW: Helper method to check if slot can be modified
   canBeModified(): boolean {

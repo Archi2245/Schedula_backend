@@ -1,9 +1,11 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
   ManyToOne, CreateDateColumn, UpdateDateColumn,
+  JoinColumn,
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
 import { Patient } from './patient.entity';
+import { DoctorAvailability } from './doctor-availability.entity';
 
 @Entity()
 export class Appointment {
@@ -58,4 +60,8 @@ reporting_time?: Date; // Actual time patient should arrive (different from sche
 
 @Column({ nullable: true })
 time_interval_minutes?: number; // For wave: slot_duration/patients_per_slot
+
+@ManyToOne(() => DoctorAvailability, (slot) => slot.appointments, { nullable: true })
+@JoinColumn({ name: 'slot_id' })
+slot: DoctorAvailability;
 }

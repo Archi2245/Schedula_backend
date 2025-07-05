@@ -71,6 +71,9 @@ export class Doctor {
   // 🔥 NEW: Default consulting time per patient (used for validation)
   @Column({ default: 10 })
   default_consulting_time_per_patient: number;
+  patients_per_slot: any;
+  consulting_time_per_patient: number | undefined;
+  slot_duration: any;
 
   // 🔥 NEW: Helper method to validate if doctor can create slots
   canCreateSlots(): { canCreate: boolean; errors: string[] } {
