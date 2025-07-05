@@ -22,8 +22,12 @@ export class DoctorAvailability {
   session: 'morning' | 'evening';
 
   // 🔥 RENAMED: Consulting time period
-  @Column()
-  consulting_start_time: string; // e.g., "09:00"
+  @Column({
+  type: 'varchar',
+  nullable: false,
+  default: '09:00'  // or any default consulting time you want
+})
+consulting_start_time: string;
 
   @Column()
   consulting_end_time: string; // e.g., "10:00"
