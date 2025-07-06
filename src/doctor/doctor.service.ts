@@ -191,7 +191,7 @@ export class DoctorService {
     }
 
     // 2. Check if slot can be modified
-    const hasAppointments = await this.appointmentsService.hasAppointmentsInSlot(
+    const hasAppointments = await this.appointmentsService.hasAppointmentsInSession(
   doctorId,
   slot.date,
   slot.consulting_start_time,
@@ -289,7 +289,7 @@ if (hasAppointments) {
       throw new ForbiddenException('You can only delete your own slots');
     }
 
-    const hasAppointments = await this.appointmentsService.hasAppointmentsInSlot(
+    const hasAppointments = await this.appointmentsService.hasAppointmentsInSession(
   doctorId,
   slot.date,
   slot.consulting_start_time,

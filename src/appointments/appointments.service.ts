@@ -717,4 +717,25 @@ private async handleStreamScheduling(
   async getDetailedAvailability(doctorId: number, fromDate: string, toDate: string) {
     return this.getDoctorAvailability(doctorId, fromDate, toDate, true);
   }
+
+  // ✅ FINAL: Used to block session/slot edits if any booking exists in session
+async hasAppointmentsInSession(
+  doctorId: number,
+  sessionDate: string,
+  consultingStart: string,
+  consultingEnd: string
+): Promise<boolean> {
+  const startDateTime = new Date(`${sessionDate}T${consultingStart}:00.000Z`);
+  const endDateTime = new Date(`${sessionDate}T${consultingEnd}:00.000Z`);
+
+  const count = await this.appointmentRepo.count({
+    where: {
+      doctor: { doctor_id: doctorId },
+      scheduled_on: Between(startDateTime, endDateTime),
+      appointment_status: In(['confirmed', 'pending']),
+    },
+  });
+
+  return count > 0;
+}
 }

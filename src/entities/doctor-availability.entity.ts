@@ -3,6 +3,7 @@ import {
   ManyToOne, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
+import { Appointment } from './appointment.entity';
 
 @Entity()
 export class DoctorAvailability {
@@ -157,4 +158,14 @@ export class DoctorAvailability {
     
     return times;
   }
+
+  hasBookingsInSession(appointments: Appointment[]): boolean {
+  const sessionStart = new Date(`${this.date}T${this.consulting_start_time}`);
+  const sessionEnd = new Date(`${this.date}T${this.consulting_end_time}`);
+
+  return appointments.some(apt => {
+    const aptTime = new Date(apt.scheduled_on);
+    return aptTime >= sessionStart && aptTime < sessionEnd;
+  });
+}
 }
