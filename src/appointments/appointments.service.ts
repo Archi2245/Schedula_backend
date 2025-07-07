@@ -266,6 +266,10 @@ export class AppointmentsService {
       slotPosition = result.position;
     }
 
+    console.log("▶️ DTO.scheduled_on:", dto.scheduled_on);
+console.log("✅ Parsed scheduledDateTime:", scheduledDateTime);
+console.log("❓ Is NaN:", isNaN(scheduledDateTime.getTime()));
+
     // 11. Create the appointment
     const appointment = this.appointmentRepo.create({
       scheduled_on: scheduledDateTime,
