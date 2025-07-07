@@ -191,6 +191,9 @@ export class AppointmentsService {
 
     // 3. Parse the scheduled datetime
     const scheduledDateTime = parseISO(dto.scheduled_on);
+    if (!dto.scheduled_on || isNaN(scheduledDateTime.getTime())) {
+  throw new BadRequestException('Invalid or missing scheduled_on datetime');
+}
     const dateStr = format(scheduledDateTime, 'yyyy-MM-dd');
     const timeStr = format(scheduledDateTime, 'HH:mm');
 

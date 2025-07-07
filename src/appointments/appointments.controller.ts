@@ -6,6 +6,7 @@ import {
   Body,
   Query,
   UseGuards,
+  UsePipes, ValidationPipe,
   Req,
 } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
@@ -25,6 +26,7 @@ export class AppointmentsController {
   // POST /appointments - Book an appointment (Patients only)
   @Post()
   @Roles(Role.PATIENT)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async createAppointment(
     @GetCurrentUserId() userId: number,
     @Body() dto: CreateAppointmentDto,
