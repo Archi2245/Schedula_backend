@@ -58,4 +58,8 @@ export class TimeSlot {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @Column({ default: 0 })
+  current_bookings: number;
+
 }

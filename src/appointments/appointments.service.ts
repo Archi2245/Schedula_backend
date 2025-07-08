@@ -167,7 +167,7 @@ export class AppointmentsService {
   // ✅ Get appointments by slot ID (for doctor dashboard)
   async getAppointmentsBySlot(slotId: number) {
     return this.appointmentRepo.find({
-      where: { slot: { slot_id: slotId } },
+      where: { timeSlot: { slot_id: slotId } },
       relations: ['patient'],
       order: { slot_position: 'ASC' },
     });
