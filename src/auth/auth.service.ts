@@ -36,9 +36,11 @@ export class AuthService {
 
     // Create User (common for both roles)
     const user = this.userRepo.create({
+      name: dto.name,
       email: dto.email,
       password: hashedPassword,
       role: dto.role,
+      provider: 'local',
     });
 
     const savedUser = await this.userRepo.save(user);
@@ -46,16 +48,13 @@ export class AuthService {
     // Based on Role, create profile
     if (dto.role === Role.DOCTOR) {
       const doctor = this.doctorRepo.create({
-        name: dto.name,
         specialization: dto.specialization,
-        user: savedUser,
+        user: savedUser, // `savedUser` should contain `name`, `email`, etc.
         phone_number: dto.phone_number,
         experience_years: dto.experience_years,
         education: dto.education,
         clinic_name: dto.clinic_name,
         clinic_address: dto.clinic_address,
-        available_days: dto.available_days,
-        available_time_slots: dto.available_time_slots,
       });
       await this.doctorRepo.save(doctor);
     } else if (dto.role === Role.PATIENT) {

@@ -58,7 +58,7 @@ export class AppointmentsService {
     throw new ConflictException('Slot is fully booked');
   }
 
-  const patient = await this.patientRepo.findOne({ where: { id: patientId } });
+  const patient = await this.patientRepo.findOne({ where: { patient_id: patientId } });
   if (!patient) throw new NotFoundException('Patient not found');
 
   const existing = await this.appointmentRepo.findOne({
@@ -95,7 +95,7 @@ export class AppointmentsService {
 
   const slotBookings = slot.slot_bookings || {};
   slotBookings[position] = {
-    patient_id: patient.id,
+    patient_id: patient.patient_id,
     appointment_id: saved.appointment_id,
     position,
     reporting_time: reportingTimeStr,
@@ -118,9 +118,9 @@ export class AppointmentsService {
       relations: ['slot', 'patient'],
     });
     if (!appointment) throw new NotFoundException('Appointment not found');
-    if (appointment.patient.id !== patientId) throw new ForbiddenException('Unauthorized');
+    if (appointment.patient.patient_id !== patientId) throw new ForbiddenException('Unauthorized');
 
-    const slot = appointment.slot;
+    const slot = appointment.timeSlot;
     if (!slot) throw new NotFoundException('Slot not found');
 
     // Remove from slot
@@ -158,7 +158,7 @@ export class AppointmentsService {
   // ✅ Get my appointments
   async getMyAppointments(patientId: number) {
     return this.appointmentRepo.find({
-      where: { patient: { id: patientId } },
+      where: { patient: { patient_id: patientId } },
       relations: ['doctor', 'slot'],
       order: { scheduled_on: 'ASC' },
     });
@@ -167,7 +167,7 @@ export class AppointmentsService {
   // ✅ Get appointments by slot ID (for doctor dashboard)
   async getAppointmentsBySlot(slotId: number) {
     return this.appointmentRepo.find({
-      where: { slot: { id: slotId } },
+      where: { slot: { slot_id: slotId } },
       relations: ['patient'],
       order: { slot_position: 'ASC' },
     });

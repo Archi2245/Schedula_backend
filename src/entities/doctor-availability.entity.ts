@@ -7,6 +7,7 @@ import { TimeSlot } from './time-slot.entity';
 
 @Entity()
 export class DoctorAvailability {
+  
   booking_start_time: any;
   booking_end_time: Date | undefined;
   isBookingWindowOpen(): unknown {
@@ -14,6 +15,10 @@ export class DoctorAvailability {
   }
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'varchar', default: 'active' })
+  slot_status: 'active' | 'inactive';
+
 
   @ManyToOne(() => Doctor, (doctor) => doctor.availabilities)
   doctor: Doctor;
@@ -79,5 +84,29 @@ slot_bookings: Record<string, {
   position: number;
   reporting_time: string;
 }>;
+
+getReportingTimes(): string[] {
+  const interval = this.reporting_interval_minutes ?? 10;
+  const result: string[] = [];
+  const [startHour, startMin] = this.consulting_start_time.split(':').map(Number);
+  const [endHour, endMin] = this.consulting_end_time.split(':').map(Number);
+  const start = new Date(`${this.date}T${this.consulting_start_time}`);
+  const end = new Date(`${this.date}T${this.consulting_end_time}`);
+
+  const totalMinutes = (end.getTime() - start.getTime()) / 60000;
+  const slots = Math.floor(totalMinutes / interval);
+
+  for (let i = 0; i < slots; i++) {
+    const time = new Date(start.getTime() + i * interval * 60000);
+    result.push(time.toTimeString().substring(0, 5)); // HH:MM
+  }
+
+  return result;
+}
+
+getAvailableSpots(): number {
+  return (this.patients_per_slot ?? 1) - (this.current_bookings ?? 0);
+}
+
 
 }
