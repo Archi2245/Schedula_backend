@@ -45,6 +45,7 @@ export class Appointment {
   @ManyToOne(() => Patient, pat => pat.appointments)
   patient: Patient;
 
-  @ManyToOne(() => TimeSlot, slot => slot.slot_bookings, { nullable: false })
+  @ManyToOne(() => TimeSlot, slot => slot.slot_bookings, { nullable: true })
   timeSlot: TimeSlot; // 🔥 Replaces doctorAvailability
+  
 }
