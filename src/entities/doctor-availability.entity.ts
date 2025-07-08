@@ -1,12 +1,17 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  ManyToOne, CreateDateColumn, UpdateDateColumn,
+  ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
-import { Appointment } from './appointment.entity';
+import { TimeSlot } from './time-slot.entity';
 
 @Entity()
 export class DoctorAvailability {
+  booking_start_time: any;
+  booking_end_time: Date | undefined;
+  isBookingWindowOpen(): unknown {
+    throw new Error('Method not implemented.');
+  }
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -22,150 +27,57 @@ export class DoctorAvailability {
   @Column()
   session: 'morning' | 'evening';
 
-  // 🔥 RENAMED: Consulting time period - allow nullable for migration
-  @Column({
-    type: 'varchar',
-    nullable: true,   
-    default: '09:00'
-  })
+  @Column({ type: 'varchar', nullable: true, default: '09:00' })
   consulting_start_time: string;
 
-  // 🔥 CHANGE: Allow nullable for migration
-  @Column({
-    type: 'varchar',
-    nullable: true,  
-    default: '11:00'
-  })
+  @Column({ type: 'varchar', nullable: true, default: '11:00' })
   consulting_end_time: string;
 
-  // 🔥 NEW: Booking window (when patients can book this slot)
-  @Column({ 
-    type: 'timestamp',
-    nullable: true  
-  })
-  booking_start_time: Date;
-
-  @Column({ 
-    type: 'timestamp',
-    nullable: true  
-  })
-  booking_end_time: Date;
-
-  // 🔥 NEW: Manually set by doctor for each slot
-  @Column({
-    nullable: true,  
-    default: 1
-  })
-  patients_per_slot: number;
-
-  // 🔥 NEW: Calculated field - slot duration in minutes
-  @Column({
-    nullable: true,  
-    default: 60
-  })
-  slot_duration_minutes: number;
-
-  // 🔥 NEW: Calculated field - reporting interval for wave scheduling
-  @Column({
-    nullable: true,  
-    default: 60
-  })
-  reporting_interval_minutes: number;
-
-  // 🔥 NEW: Current booking count for this slot
-  @Column({ 
-    default: 0,
-    nullable: true  
-  })
-  current_bookings: number;
-
-  // 🔥 NEW: Track if slot is fully booked
-  @Column({ 
-    default: false,
-    nullable: true  
-  })
-  is_fully_booked: boolean;
-
-  // 🔥 NEW: Booking tracking with patient positions
-  @Column({ 
-    type: 'json',
-    nullable: true,  
-    default: () => "'{}'" 
-  })
-  slot_bookings: Record<string, {
-    patient_id: number;
-    appointment_id: number;
-    position: number;
-    reporting_time: string;
-  }>;
-
-  @Column({ 
-    type: 'enum', 
-    enum: ['active', 'cancelled', 'completed'], 
-    default: 'active',
-    nullable: true  
-  })
-  slot_status: 'active' | 'cancelled' | 'completed';
+  @OneToMany(() => TimeSlot, (slot) => slot.availability, { cascade: true })
+  slots: TimeSlot[];
 
   @CreateDateColumn()
   created_at: Date;
 
   @UpdateDateColumn()
   updated_at: Date;
-  
-  // 🔥 LEGACY: Keep these for backward compatibility
-  time_slots: any;
-  appointments: any;
+  patients_per_slot: number | undefined;
+  slot_duration_minutes: number;
+  reporting_interval_minutes: number;
 
-  // 🔥 NEW: Helper method to check if slot can be modified
-  canBeModified(): boolean {
-    return (this.current_bookings || 0) === 0;
+  // 🧠 Utils
+  isConsultingTimeValid(): boolean {
+    if (!this.consulting_start_time || !this.consulting_end_time) return false;
+    const start = new Date(`${this.date}T${this.consulting_start_time}`);
+    const end = new Date(`${this.date}T${this.consulting_end_time}`);
+    return start < end;
   }
 
-  // 🔥 NEW: Helper method to check if booking window is open
-  isBookingWindowOpen(): boolean {
-    if (!this.booking_start_time || !this.booking_end_time) {
-      return false; 
-    }
-    const now = new Date();
-    return now >= this.booking_start_time && now <= this.booking_end_time;
+  isBookingWindowValid(bookingStart: Date, bookingEnd: Date): boolean {
+    const consultingStart = new Date(`${this.date}T${this.consulting_start_time}`);
+    return (
+      bookingStart < consultingStart &&
+      bookingEnd < consultingStart &&
+      bookingStart < bookingEnd
+    );
   }
 
-  // 🔥 NEW: Helper method to get available spots
-  getAvailableSpots(): number {
-    const patientsPerSlot = this.patients_per_slot || 1;
-    const currentBookings = this.current_bookings || 0;
-    return patientsPerSlot - currentBookings;
-  }
+  @Column({ default: 0 })
+current_bookings: number;
 
-  // 🔥 NEW: Helper method to calculate reporting times for wave scheduling
-  getReportingTimes(): string[] {
-    // 👈 CHANGE: Handle null values
-    if (!this.consulting_start_time || !this.patients_per_slot || !this.reporting_interval_minutes) {
-      return [];
-    }
+@Column({ default: false })
+is_fully_booked: boolean;
 
-    const times: string[] = [];
-    const [startH, startM] = this.consulting_start_time.split(':').map(Number);
-    let currentMinutes = startH * 60 + startM;
-    
-    for (let i = 0; i < this.patients_per_slot; i++) {
-      const h = Math.floor(currentMinutes / 60).toString().padStart(2, '0');
-      const m = (currentMinutes % 60).toString().padStart(2, '0');
-      times.push(`${h}:${m}`);
-      currentMinutes += this.reporting_interval_minutes;
-    }
-    
-    return times;
-  }
+@Column({
+  type: 'json',
+  nullable: true,
+  default: () => "'{}'",
+})
+slot_bookings: Record<string, {
+  patient_id: number;
+  appointment_id: number;
+  position: number;
+  reporting_time: string;
+}>;
 
-  hasBookingsInSession(appointments: Appointment[]): boolean {
-  const sessionStart = new Date(`${this.date}T${this.consulting_start_time}`);
-  const sessionEnd = new Date(`${this.date}T${this.consulting_end_time}`);
-
-  return appointments.some(apt => {
-    const aptTime = new Date(apt.scheduled_on);
-    return aptTime >= sessionStart && aptTime < sessionEnd;
-  });
-}
 }

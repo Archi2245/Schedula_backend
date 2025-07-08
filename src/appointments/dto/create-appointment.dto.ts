@@ -1,26 +1,29 @@
+// ✅ CREATE-APPOINTMENT DTO
 import {
-  IsDateString,
-  IsString,
   IsEnum,
-  IsNumber,
-  IsISO8601,
-  IsOptional
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsDateString,
+  Min,
 } from 'class-validator';
 
 export class CreateAppointmentDto {
-  @IsNumber()
+  @IsInt()
   doctor_id: number;
 
-  @IsISO8601()
-  scheduled_on: string; // Full ISO datetime: "2025-07-15T09:00:00.000Z"
+  @IsInt()
+  slot_id: number;
+
+  @IsDateString()
+  scheduled_on: string; // ISO date-time string
+
+  @IsEnum(['morning', 'evening'])
+  session: 'morning' | 'evening';
 
   @IsString()
   weekday: string;
-
-  @IsEnum(['morning', 'evening'], { 
-    message: 'Session must be morning or evening' 
-  })
-  session: 'morning' | 'evening';
 
   @IsOptional()
   @IsString()

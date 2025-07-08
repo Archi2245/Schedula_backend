@@ -1,34 +1,24 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  ManyToOne, CreateDateColumn, UpdateDateColumn,
-  JoinColumn,
+  ManyToOne, CreateDateColumn, UpdateDateColumn
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
 import { Patient } from './patient.entity';
-import { DoctorAvailability } from './doctor-availability.entity';
+import { TimeSlot } from './time-slot.entity';
 
 @Entity()
 export class Appointment {
   @PrimaryGeneratedColumn()
   appointment_id: number;
 
-  // 🔥 CHANGE: Combined date and time into one field
   @Column({ type: 'timestamp', nullable: true })
-  scheduled_on: Date; // Stores both date and time
+  scheduled_on: Date;
 
-  @Column()
-  weekday: string; // e.g., "Monday", "Tuesday"
-
-  @Column()
-  session: 'morning' | 'evening';
-
-  // 🔥 CHANGE: Duration in minutes instead of end_time
   @Column({ default: 15 })
-  duration_minutes: number; // 15 minutes for most appointments
+  duration_minutes: number;
 
-  // 🔥 NEW: Slot position for wave scheduling
   @Column({ nullable: true })
-  slot_position?: number; // 1, 2, 3 for wave scheduling order
+  slot_position?: number;
 
   @Column({ 
     type: 'enum', 
@@ -43,11 +33,11 @@ export class Appointment {
   @Column({ type: 'text', nullable: true })
   notes?: string;
 
-  @CreateDateColumn()
-  created_at: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  reporting_time?: Date;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @Column({ nullable: true })
+  time_interval_minutes?: number;
 
   @ManyToOne(() => Doctor, doc => doc.appointments)
   doctor: Doctor;
@@ -55,13 +45,6 @@ export class Appointment {
   @ManyToOne(() => Patient, pat => pat.appointments)
   patient: Patient;
 
-@Column({ type: 'timestamp', nullable: true })
-reporting_time?: Date; // Actual time patient should arrive (different from scheduled_on in wave)
-
-@Column({ nullable: true })
-time_interval_minutes?: number; // For wave: slot_duration/patients_per_slot
-
-@ManyToOne(() => DoctorAvailability, (slot) => slot.appointments, { nullable: true })
-@JoinColumn({ name: 'slot_id' })
-slot: DoctorAvailability;
+  @ManyToOne(() => TimeSlot, slot => slot.slot_bookings, { nullable: false })
+  timeSlot: TimeSlot; // 🔥 Replaces doctorAvailability
 }

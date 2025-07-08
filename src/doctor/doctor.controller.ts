@@ -4,123 +4,125 @@ import {
   Post,
   Put,
   Delete,
-  UseGuards,
   Patch,
   Req,
   Param,
   Query,
   Body,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '../types/roles.enum';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { AccessTokenGuard } from '../auth/guard/access-token.guard';
 import { DoctorService } from './doctor.service';
-import { Doctor } from '../entities/doctor.entity';
-import { Public } from '../common/decorators/public.decorator';
 import { CreateSlotDto } from './dto/create-slot.dto';
 import { UpdateSlotDto } from './dto/update-slot.dto';
 import { SlotQueryDto } from './dto/slot-query.dto';
 import { UpdateScheduleTypeDto } from './dto/update-schedule-type.dto';
+import { Roles } from '../common/decorators/roles.decorator';
+import { Role } from '../types/roles.enum';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { AccessTokenGuard } from '../auth/guard/access-token.guard';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('doctor')
 @UseGuards(AccessTokenGuard, RolesGuard)
 export class DoctorController {
   constructor(private readonly doctorService: DoctorService) {}
 
-  // 👤 Doctor profile
+  // ✅ Doctor welcome route
   @Get('profile')
   @Roles(Role.DOCTOR)
   getDoctorProfile(@Req() req) {
-    return { message: 'Welcome Doctor', user: req.user };
+    return {
+      message: 'Welcome Doctor',
+      user: req.user,
+    };
   }
 
-  // 🔍 Get all doctors (public)
+  // ✅ Public - Get all doctors (search optional)
   @Get()
   @Public()
-  async getAllDoctors(@Query('search') search?: string): Promise<Doctor[]> {
+  getAllDoctors(@Query('search') search?: string) {
     return this.doctorService.findAll(search);
   }
 
-  // 🔍 Get doctor by ID (public)
+  // ✅ Public - Get doctor by ID
   @Get(':id')
   @Public()
-  async getDoctorById(@Param('id', ParseIntPipe) id: number): Promise<Doctor> {
-    return this.doctorService.findOne(id);
+  getDoctorById(@Param('id', ParseIntPipe) doctorId: number) {
+    return this.doctorService.findOne(doctorId);
   }
 
-  // 🔄 Update doctor's schedule type
+  // ✅ Update schedule type (Doctor only)
   @Patch(':id/schedule-type')
   @Roles(Role.DOCTOR)
-  async updateScheduleType(
+  updateScheduleType(
     @Param('id', ParseIntPipe) doctorId: number,
     @Body() dto: UpdateScheduleTypeDto,
-    @Req() req
+    @Req() req,
   ) {
     return this.doctorService.updateScheduleType(doctorId, dto, req.user.sub);
   }
 
-  // 🔥 NEW: Create individual slot
+  // ✅ Create Slot (Doctor only)
   @Post(':id/slots')
   @Roles(Role.DOCTOR)
-  async createSlot(
+  createSlot(
     @Param('id', ParseIntPipe) doctorId: number,
     @Body() dto: CreateSlotDto,
-    @Req() req
+    @Req() req,
   ) {
     return this.doctorService.createSlot(doctorId, dto, req.user.sub);
   }
 
-  // 🔥 NEW: Update slot
+  // ✅ Update Slot (Doctor only)
   @Put(':id/slots/:slotId')
   @Roles(Role.DOCTOR)
-  async updateSlot(
+  updateSlot(
     @Param('id', ParseIntPipe) doctorId: number,
     @Param('slotId', ParseIntPipe) slotId: number,
     @Body() dto: UpdateSlotDto,
-    @Req() req
+    @Req() req,
   ) {
     return this.doctorService.updateSlot(doctorId, slotId, dto, req.user.sub);
   }
 
-  // 🔥 NEW: Delete slot
+  // ✅ Delete Slot (Doctor only)
   @Delete(':id/slots/:slotId')
   @Roles(Role.DOCTOR)
-  async deleteSlot(
+  deleteSlot(
     @Param('id', ParseIntPipe) doctorId: number,
     @Param('slotId', ParseIntPipe) slotId: number,
-    @Req() req
+    @Req() req,
   ) {
     return this.doctorService.deleteSlot(doctorId, slotId, req.user.sub);
   }
 
-  // 🔥 NEW: Get doctor's own slots (for doctor management)
+  // ✅ Get Doctor’s Own Slots (Paginated)
   @Get(':id/slots')
   @Roles(Role.DOCTOR)
-  async getDoctorSlots(
+  getDoctorSlots(
     @Param('id', ParseIntPipe) doctorId: number,
-    @Query() query: SlotQueryDto
+    @Query() query: SlotQueryDto,
   ) {
     return this.doctorService.getDoctorSlots(doctorId, query);
   }
 
-  // 🔥 NEW: Get available slots for patients (public or patient role)
+  // ✅ Get Available Slots For Patients (Public route)
   @Get(':id/availability')
   @Public()
-  async getAvailableSlotsForPatients(
+  getAvailableSlotsForPatients(
     @Param('id', ParseIntPipe) doctorId: number,
-    @Query() query: SlotQueryDto
+    @Query() query: SlotQueryDto,
   ) {
     return this.doctorService.getAvailableSlotsForPatients(doctorId, query);
   }
 
-  // 🔥 ALTERNATIVE: Get available slots for patients (patient role only)
+  // ✅ Alternate: Get Patient-Protected Availability
   @Get(':id/availability-protected')
   @Roles(Role.PATIENT)
-  async getAvailableSlotsForPatientsProtected(
+  getAvailableSlotsForPatientsProtected(
     @Param('id', ParseIntPipe) doctorId: number,
-    @Query() query: SlotQueryDto
+    @Query() query: SlotQueryDto,
   ) {
     return this.doctorService.getAvailableSlotsForPatients(doctorId, query);
   }

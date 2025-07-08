@@ -11,8 +11,8 @@ export class SlotQueryDto {
   session?: 'morning' | 'afternoon' | 'evening';
 
   @IsOptional()
-  @IsEnum(['active', 'inactive', 'cancelled'])
-  status?: 'active' | 'inactive' | 'cancelled';
+  @IsEnum(['active', 'cancelled', 'completed'])
+  status?: 'active' | 'cancelled' | 'completed';
 
   @IsOptional()
   @IsNumber()
