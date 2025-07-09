@@ -1,11 +1,11 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class InitMigration1752066567545 implements MigrationInterface {
-    name = 'InitMigration1752066567545'
+export class Addnulls1752074788938 implements MigrationInterface {
+    name = 'Addnulls1752074788938'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "doctor_availability" ADD "booking_start_time" TIMESTAMP NOT NULL`);
-        await queryRunner.query(`ALTER TABLE "doctor_availability" ADD "booking_end_time" TIMESTAMP NOT NULL`);
+        await queryRunner.query(`ALTER TABLE "doctor_availability" ADD "booking_start_time" TIMESTAMP NOT NULL DEFAULT NOW()`);
+        await queryRunner.query(`ALTER TABLE "doctor_availability" ADD "booking_end_time" TIMESTAMP NOT NULL DEFAULT NOW()`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
