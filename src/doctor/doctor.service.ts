@@ -17,19 +17,6 @@ import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
 export class DoctorService {
-  slotRepo: any;
-  getAvailableSlotsForPatients(doctorId: number, query: SlotQueryDto) {
-    throw new Error('Method not implemented.');
-  }
-  getDoctorSlots(doctorId: number, query: SlotQueryDto) {
-    throw new Error('Method not implemented.');
-  }
-  deleteSlot(doctorId: number, slotId: number, sub: any) {
-    throw new Error('Method not implemented.');
-  }
-  updateSlot(doctorId: number, slotId: number, dto: UpdateSlotDto, sub: any) {
-    throw new Error('Method not implemented.');
-  }
   constructor(
     @InjectRepository(Doctor)
     private doctorRepository: Repository<Doctor>,
@@ -83,6 +70,187 @@ export class DoctorService {
       message: 'Schedule type updated successfully',
       doctor_id: doctor.doctor_id,
       schedule_type: doctor.schedule_type,
+    };
+  }
+
+  // ✅ FIXED: Get doctor's own slots
+  async getDoctorSlots(doctorId: number, query: SlotQueryDto) {
+    const { page = 1, limit = 10, date, session, status } = query;
+    const skip = (page - 1) * limit;
+
+    const whereConditions: any = {
+      doctor: { doctor_id: doctorId },
+    };
+
+    if (date) {
+      whereConditions.date = date;
+    }
+
+    if (session) {
+      whereConditions.session = session;
+    }
+
+    if (status) {
+      whereConditions.slot_status = status;
+    }
+
+    const [slots, total] = await this.availabilityRepo.findAndCount({
+      where: whereConditions,
+      relations: ['doctor'],
+      order: { date: 'ASC', consulting_start_time: 'ASC' },
+      skip,
+      take: limit,
+    });
+
+    return {
+      slots,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // ✅ FIXED: Get available slots for patients
+  async getAvailableSlotsForPatients(doctorId: number, query: SlotQueryDto) {
+    const { date, session } = query;
+    const whereConditions: any = {
+      doctor: { doctor_id: doctorId },
+      slot_status: 'active',
+      is_fully_booked: false,
+    };
+
+    if (date) {
+      whereConditions.date = date;
+    }
+
+    if (session) {
+      whereConditions.session = session;
+    }
+
+    const slots = await this.availabilityRepo.find({
+      where: whereConditions,
+      relations: ['doctor'],
+      order: { date: 'ASC', consulting_start_time: 'ASC' },
+    });
+
+    // Filter slots where booking window is open
+    const availableSlots = slots.filter(slot => slot.isBookingWindowOpen());
+
+    return {
+      doctor_id: doctorId,
+      available_slots: availableSlots.map(slot => ({
+        slot_id: slot.id,
+        date: slot.date,
+        session: slot.session,
+        consulting_start_time: slot.consulting_start_time,
+        consulting_end_time: slot.consulting_end_time,
+        available_spots: slot.getAvailableSpots(),
+        total_spots: slot.patients_per_slot,
+        is_fully_booked: slot.is_fully_booked,
+        reporting_times: slot.getReportingTimes(),
+        booking_closes_at: slot.booking_end_time,
+      })),
+    };
+  }
+
+  // ✅ FIXED: Update slot
+  async updateSlot(
+    doctorId: number,
+    slotId: number,
+    dto: UpdateSlotDto,
+    requestingUserId: number,
+  ) {
+    const doctor = await this.findOne(doctorId);
+    if (doctor.user.id !== requestingUserId) {
+      throw new ForbiddenException('You can only update your own slots');
+    }
+
+    const slot = await this.availabilityRepo.findOne({
+      where: { id: slotId, doctor: { doctor_id: doctorId } },
+    });
+
+    if (!slot) {
+      throw new NotFoundException('Slot not found');
+    }
+
+    // Check if slot has appointments
+    if (slot.current_bookings > 0) {
+      throw new ConflictException('Cannot update slot with existing appointments');
+    }
+
+    // Update fields if provided
+    if (dto.consulting_start_time) slot.consulting_start_time = dto.consulting_start_time;
+    if (dto.consulting_end_time) slot.consulting_end_time = dto.consulting_end_time;
+    if (dto.patients_per_slot) slot.patients_per_slot = dto.patients_per_slot;
+    if (dto.booking_start_time) slot.booking_start_time = dto.booking_start_time;
+    if (dto.booking_end_time) slot.booking_end_time = dto.booking_end_time;
+
+    // Recalculate duration and interval if times changed
+    const patientsPerSlot = slot.patients_per_slot ?? 1;
+    if (dto.consulting_start_time || dto.consulting_end_time) {
+      const slotDuration = this.calculateSlotDuration(
+        slot.consulting_start_time,
+        slot.consulting_end_time,
+      );
+
+      slot.slot_duration_minutes = slotDuration;
+      slot.reporting_interval_minutes = Math.floor(slotDuration / patientsPerSlot);
+    }
+
+    // Validate configuration
+    this.validatePatientsPerSlot(doctor.schedule_type, patientsPerSlot);
+
+    // Check for overlaps
+    await this.checkForOverlappingSlots(
+      doctorId,
+      slot.date,
+      slot.consulting_start_time,
+      slot.consulting_end_time,
+      slotId,
+    );
+
+    const updatedSlot = await this.availabilityRepo.save(slot);
+
+    return {
+      message: 'Slot updated successfully',
+      slot: {
+        id: updatedSlot.id,
+        date: updatedSlot.date,
+        consulting_start_time: updatedSlot.consulting_start_time,
+        consulting_end_time: updatedSlot.consulting_end_time,
+        patients_per_slot: updatedSlot.patients_per_slot,
+        slot_duration_minutes: updatedSlot.slot_duration_minutes,
+        reporting_interval_minutes: updatedSlot.reporting_interval_minutes,
+      },
+    };
+  }
+
+  // ✅ FIXED: Delete slot
+  async deleteSlot(doctorId: number, slotId: number, requestingUserId: number) {
+    const doctor = await this.findOne(doctorId);
+    if (doctor.user.id !== requestingUserId) {
+      throw new ForbiddenException('You can only delete your own slots');
+    }
+
+    const slot = await this.availabilityRepo.findOne({
+      where: { id: slotId, doctor: { doctor_id: doctorId } },
+    });
+
+    if (!slot) {
+      throw new NotFoundException('Slot not found');
+    }
+
+    // Check if slot has appointments
+    if (slot.current_bookings > 0) {
+      throw new ConflictException('Cannot delete slot with existing appointments');
+    }
+
+    await this.availabilityRepo.remove(slot);
+
+    return {
+      message: 'Slot deleted successfully',
+      slot_id: slotId,
     };
   }
 
@@ -154,20 +322,10 @@ export class DoctorService {
       current_bookings: 0,
       is_fully_booked: false,
       slot_bookings: {},
+      slot_status: 'active', // ✅ Set as active by default
     });
 
     const savedSlot = await this.availabilityRepo.save(slot);
-
-    const matchingSlots = await this.slotRepo.count({
-    where: {
-      availability: savedSlot, // assuming TimeSlot has relation to DoctorAvailability
-    },
-});
-
-if (matchingSlots === 0) {
-  savedSlot.slot_status = 'inactive';
-  await this.availabilityRepo.save(savedSlot);
-}
 
     return {
       message: 'Slot created successfully',
