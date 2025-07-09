@@ -63,16 +63,6 @@ export class DoctorController {
     return this.doctorService.updateScheduleType(doctorId, dto, req.user.sub);
   }
 
-  // ✅ Create Slot (Doctor only)
-  @Post(':id/slots')
-  @Roles(Role.DOCTOR)
-  createSlot(
-    @Param('id', ParseIntPipe) doctorId: number,
-    @Body() dto: CreateSlotDto,
-    @Req() req,
-  ) {
-    return this.doctorService.createSlot(doctorId, dto, req.user.sub);
-  }
 
   // ✅ Update Slot (Doctor only)
   @Put(':id/slots/:slotId')
@@ -126,4 +116,28 @@ export class DoctorController {
   ) {
     return this.doctorService.getAvailableSlotsForPatients(doctorId, query);
   }
+
+   // ✅ Create Availability (Doctor only)
+@Post(':id/availability')
+@Roles(Role.DOCTOR)
+createAvailability(
+  @Param('id', ParseIntPipe) doctorId: number,
+  @Body() dto: CreateSlotDto,
+  @Req() req,
+) {
+  return this.doctorService.createAvailability(doctorId, dto, req.user.sub);
+}
+
+// ✅ Create Slot under Availability
+@Post(':id/availability/:availabilityId/slots')
+@Roles(Role.DOCTOR)
+createSlotUnderAvailability(
+  @Param('id', ParseIntPipe) doctorId: number,
+  @Param('availabilityId', ParseIntPipe) availabilityId: number,
+  @Body() dto: CreateSlotDto,
+  @Req() req,
+) {
+  return this.doctorService.createSlot(doctorId, availabilityId, dto, req.user.sub);
+}
+
 }

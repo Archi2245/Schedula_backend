@@ -8,7 +8,10 @@ import { TimeSlot } from './time-slot.entity';
 @Entity()
 export class DoctorAvailability {
   
-  booking_start_time: any;
+  @Column({ type: 'timestamp' })
+  booking_start_time: Date;
+
+  @Column({ type: 'timestamp' })
   booking_end_time: Date;
   
   @PrimaryGeneratedColumn()
@@ -56,25 +59,22 @@ export class DoctorAvailability {
     return start < end;
   }
 
-  isBookingWindowValid(bookingStart: Date, bookingEnd: Date): boolean {
-    const consultingStart = new Date(`${this.date}T${this.consulting_start_time}`);
-    return (
-      bookingStart < consultingStart &&
-      bookingEnd < consultingStart &&
-      bookingStart < bookingEnd
-    );
-  }
-
   isBookingWindowOpen(): boolean {
   const now = new Date();
-  return this.booking_start_time <= now && this.booking_end_time >= now;
+  return (
+    this.booking_start_time instanceof Date &&
+    this.booking_end_time instanceof Date &&
+    this.booking_start_time <= now &&
+    now <= this.booking_end_time
+  );
 }
 
-  @Column({ default: 0 })
-current_bookings: number;
 
-@Column({ default: false })
-is_fully_booked: boolean;
+  @Column({ default: 0 })
+  current_bookings: number;
+
+  @Column({ default: false })
+  is_fully_booked: boolean;
 
 @Column({
   type: 'json',
@@ -108,7 +108,7 @@ getReportingTimes(): string[] {
 }
 
 getAvailableSpots(): number {
-  return (this.patients_per_slot ?? 1) - (this.current_bookings ?? 0);
+  return Math.max(0, (this.patients_per_slot ?? 1) - (this.current_bookings ?? 0));
 }
 
 

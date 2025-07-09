@@ -14,6 +14,8 @@ import { UpdateSlotDto } from './dto/update-slot.dto';
 import { SlotQueryDto } from './dto/slot-query.dto';
 import { UpdateScheduleTypeDto } from './dto/update-schedule-type.dto';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { CreateAvailabilityDto } from './dto/create-availability.dto';
+import { TimeSlot } from 'src/entities/time-slot.entity';
 
 @Injectable()
 export class DoctorService {
@@ -25,6 +27,10 @@ export class DoctorService {
     private availabilityRepo: Repository<DoctorAvailability>,
 
     private appointmentsService: AppointmentsService,
+
+    @InjectRepository(TimeSlot)
+    private slotRepo: Repository<TimeSlot>,
+
   ) {}
 
   async findAll(search?: string): Promise<Doctor[]> {
@@ -175,8 +181,19 @@ export class DoctorService {
     }
 
     // Check if slot has appointments
-    if (slot.current_bookings > 0) {
-      throw new ConflictException('Cannot update slot with existing appointments');
+    // ✅ Check for any bookings in the same session (date + session)
+    const sessionSlots = await this.availabilityRepo.find({
+      where: {
+        doctor: { doctor_id: doctorId },
+        date: slot.date,
+        session: slot.session,
+      },
+    });
+
+    const hasAnyAppointments = sessionSlots.some(s => s.current_bookings > 0);
+
+    if (hasAnyAppointments) {
+      throw new ConflictException('Cannot update slot — appointments exist in the session');
     }
 
     // Update fields if provided
@@ -242,9 +259,15 @@ export class DoctorService {
     }
 
     // Check if slot has appointments
-    if (slot.current_bookings > 0) {
-      throw new ConflictException('Cannot delete slot with existing appointments');
-    }
+     const sessionSlots = await this.availabilityRepo.find({
+  where: { doctor: { doctor_id: doctorId }, date: slot.date, session: slot.session },
+  relations: ['doctor'],
+});
+
+const anyAppointments = sessionSlots.some(s => s.current_bookings > 0);
+if (anyAppointments) {
+  throw new ConflictException('Cannot delete slot — appointments exist in the session');
+}
 
     await this.availabilityRepo.remove(slot);
 
@@ -255,93 +278,111 @@ export class DoctorService {
   }
 
   async createSlot(
-    doctorId: number,
-    dto: CreateSlotDto,
-    requestingUserId: number,
-  ) {
-    const doctor = await this.findOne(doctorId);
-    if (doctor.user.id !== requestingUserId) {
-      throw new ForbiddenException('You can only create slots for your own profile');
-    }
-
-    const { canCreate, errors } = doctor.canCreateSlots();
-    if (!canCreate) {
-      throw new BadRequestException(errors.join(', '));
-    }
-
-    const today = new Date();
-    const selectedDate = new Date(dto.date);
-    today.setHours(0, 0, 0, 0);
-    selectedDate.setHours(0, 0, 0, 0);
-
-    if (selectedDate < today) {
-      throw new BadRequestException('Cannot create slot for past date');
-    }
-
-    const { consulting_start_time, consulting_end_time } = dto;
-    const slotDuration = this.calculateSlotDuration(consulting_start_time, consulting_end_time);
-
-    if (slotDuration < 10) {
-      throw new BadRequestException('Slot duration must be at least 10 minutes');
-    }
-
-    this.validatePatientsPerSlot(doctor.schedule_type, dto.patients_per_slot);
-
-    const reportingInterval = Math.floor(
-      slotDuration / (dto.patients_per_slot || 1),
-    );
-    this.validateReportingInterval(
-      doctor.schedule_type,
-      reportingInterval,
-      doctor.default_consulting_time_per_patient,
-    );
-
-    this.validateBookingWindow(dto.booking_start_time, dto.booking_end_time);
-
-    await this.checkForOverlappingSlots(
-      doctorId,
-      dto.date,
-      consulting_start_time,
-      consulting_end_time,
-    );
-
-    const doctorEntity = await this.doctorRepository.findOneByOrFail({ doctor_id: doctorId });
-
-    const slot = this.availabilityRepo.create({
-      doctor: doctorEntity,
-      date: dto.date,
-      weekday: dto.weekday,
-      session: dto.session,
-      consulting_start_time,
-      consulting_end_time,
-      patients_per_slot: dto.patients_per_slot ?? 1,
-      slot_duration_minutes: slotDuration,
-      reporting_interval_minutes: reportingInterval,
-      booking_start_time: dto.booking_start_time,
-      booking_end_time: dto.booking_end_time,
-      current_bookings: 0,
-      is_fully_booked: false,
-      slot_bookings: {},
-      slot_status: 'active', // ✅ Set as active by default
-    });
-
-    const savedSlot = await this.availabilityRepo.save(slot);
-
-    return {
-      message: 'Slot created successfully',
-      slot: {
-        id: savedSlot.id,
-        date: savedSlot.date,
-        consulting_start_time: savedSlot.consulting_start_time,
-        consulting_end_time: savedSlot.consulting_end_time,
-        patients_per_slot: savedSlot.patients_per_slot,
-        slot_duration_minutes: savedSlot.slot_duration_minutes,
-        reporting_interval_minutes: savedSlot.reporting_interval_minutes,
-        available_spots: savedSlot.getAvailableSpots(),
-        reporting_times: savedSlot.getReportingTimes(),
-      },
-    };
+  doctorId: number,
+  availabilityId: number,
+  dto: CreateSlotDto,
+  requestingUserId: number,
+) {
+  const doctor = await this.findOne(doctorId);
+  if (doctor.user.id !== requestingUserId) {
+    throw new ForbiddenException('You can only create slots for your own profile');
   }
+
+  const availability = await this.availabilityRepo.findOne({
+    where: { id: availabilityId },
+    relations: ['doctor'],
+  });
+
+  if (!availability) {
+    throw new NotFoundException('Doctor availability not found');
+  }
+
+  if (availability.doctor.doctor_id !== doctorId) {
+    throw new ForbiddenException('This availability does not belong to you');
+  }
+
+  const today = new Date();
+  const selectedDate = new Date(dto.date);
+  today.setHours(0, 0, 0, 0);
+  selectedDate.setHours(0, 0, 0, 0);
+
+  if (selectedDate < today) {
+    throw new BadRequestException('Cannot create slot for a past date');
+  }
+
+  const slotDuration = this.calculateSlotDuration(dto.consulting_start_time, dto.consulting_end_time);
+
+  if (slotDuration < 10) {
+    throw new BadRequestException('Slot duration must be at least 10 minutes');
+  }
+
+  this.validatePatientsPerSlot(doctor.schedule_type, dto.patients_per_slot);
+  this.validateReportingInterval(
+    doctor.schedule_type,
+    Math.floor(slotDuration / dto.patients_per_slot),
+    doctor.default_consulting_time_per_patient,
+  );
+
+  this.validateBookingWindow(dto.booking_start_time, dto.booking_end_time);
+
+  const newSlot = this.slotRepo.create({
+    doctor,
+    availability,
+    date: dto.date,
+    day_of_week: dto.weekday,
+    start_time: dto.consulting_start_time,
+    end_time: dto.consulting_end_time,
+    patients_per_slot: dto.patients_per_slot,
+    slot_duration_minutes: slotDuration,
+    current_bookings: 0,
+    is_fully_booked: false,
+    slot_bookings: {},
+    created_at: new Date(),
+    updated_at: new Date(),
+  });
+
+  const savedSlot = await this.slotRepo.save(newSlot);
+
+  return {
+    message: 'Slot created successfully under availability',
+    slot: {
+      id: savedSlot.slot_id,
+      start_time: savedSlot.start_time,
+      end_time: savedSlot.end_time,
+      slot_duration_minutes: savedSlot.slot_duration_minutes,
+      patients_per_slot: savedSlot.patients_per_slot,
+    },
+  };
+}
+
+
+  async createAvailability(
+  doctorId: number,
+  dto: CreateAvailabilityDto, // create a simple DTO with same fields as DoctorAvailability
+  requestingUserId: number
+) {
+  const doctor = await this.findOne(doctorId);
+
+  if (doctor.user.id !== requestingUserId) {
+    throw new ForbiddenException('You can only create availability for your own profile');
+  }
+
+  const availability = this.availabilityRepo.create({
+    ...dto,
+    doctor,
+    slot_status: 'active',
+    current_bookings: 0,
+    is_fully_booked: false,
+    slot_bookings: {},
+  });
+
+  const saved = await this.availabilityRepo.save(availability);
+  return {
+    message: 'Availability created',
+    availability_id: saved.id,
+  };
+}
+
 
   private calculateSlotDuration(startTime: string, endTime: string): number {
     const [startH, startM] = startTime.split(':').map(Number);

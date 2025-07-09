@@ -60,4 +60,39 @@ export class AppointmentsController {
   async cancelAppointment(@Param('appointmentId', ParseIntPipe) appointmentId: number, @Req() req) {
     return this.appointmentsService.cancelAppointment(appointmentId, req.user.sub);
   }
+
+  // ✅ DOCTOR CANCELS AN APPOINTMENT
+@Patch(':appointmentId/cancel-by-doctor')
+@Roles(Role.DOCTOR)
+async cancelByDoctor(
+  @Param('appointmentId', ParseIntPipe) appointmentId: number,
+  @Req() req,
+) {
+  return this.appointmentsService.cancelAppointmentByDoctor(appointmentId, req.user.sub);
+}
+
+// ✅ PATIENT: View upcoming/past/cancelled appointments
+@Get('patient/status')
+@Roles(Role.PATIENT)
+async getPatientAppointmentsByStatus(
+  @Query('status') status: 'upcoming' | 'past' | 'cancelled',
+  @Req() req,
+) {
+  return this.appointmentsService.getAppointmentsByStatus(req.user.sub, Role.PATIENT, status);
+}
+
+// ✅ DOCTOR: View upcoming/past/cancelled appointments
+@Get('doctor/:doctorId/status')
+@Roles(Role.DOCTOR)
+async getDoctorAppointmentsByStatus(
+  @Param('doctorId', ParseIntPipe) doctorId: number,
+  @Query('status') status: 'upcoming' | 'past' | 'cancelled',
+  @Req() req,
+) {
+  if (doctorId !== req.user.sub) {
+    throw new ForbiddenException('Unauthorized access');
+  }
+  return this.appointmentsService.getAppointmentsByStatus(doctorId, Role.DOCTOR, status);
+}
+
 }

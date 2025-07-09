@@ -7,12 +7,13 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, LessThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { Appointment } from '../entities/appointment.entity';
 import { DoctorAvailability } from '../entities/doctor-availability.entity';
 import { Patient } from '../entities/patient.entity';
 import { Doctor } from '../entities/doctor.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { Role } from 'src/types/roles.enum';
 
 @Injectable()
 export class AppointmentsService {
@@ -94,7 +95,7 @@ export class AppointmentsService {
       throw new ConflictException('Slot is not active');
     }
 
-    if (!slot.isBookingWindowValid(dto.booking_start_time, dto.booking_end_time)) {
+    if (!slot.isBookingWindowOpen()) {
   throw new ConflictException('Booking window is closed');
 }
 
@@ -158,7 +159,7 @@ export class AppointmentsService {
     };
   }
 
-  // ✅ Cancel appointment
+  // ✅ Cancel appointment by patient
   async cancelAppointment(appointmentId: number, patientId: number) {
     const appointment = await this.appointmentRepo.findOne({
       where: { appointment_id: appointmentId },
@@ -228,5 +229,63 @@ export class AppointmentsService {
     });
     if (!appointment) throw new NotFoundException('Appointment not found');
     return appointment;
+  } 
+   async getAppointmentsByStatus(userId: number, role: Role, status: string) {
+  const now = new Date();
+  const whereCondition: any = {
+    appointment_status: status,
+  };
+
+  if (role === Role.PATIENT) whereCondition.patient = { user: { id: userId } };
+  else if (role === Role.DOCTOR) whereCondition.doctor = { user: { id: userId } };
+
+  if (status === 'upcoming') {
+    whereCondition.scheduled_on = MoreThanOrEqual(now);
+    whereCondition.appointment_status = 'confirmed';
+  } else if (status === 'past') {
+    whereCondition.scheduled_on = LessThan(now);
+    whereCondition.appointment_status = 'confirmed';
+  } else if (status === 'cancelled') {
+    whereCondition.appointment_status = 'cancelled';
   }
+
+  return this.appointmentRepo.find({
+    where: whereCondition,
+    relations: ['doctor', 'patient', 'timeSlot'],
+  });
+}
+
+async cancelAppointmentByDoctor(appointmentId: number, doctorId: number) {
+  const appointment = await this.appointmentRepo.findOne({
+    where: { appointment_id: appointmentId },
+    relations: ['timeSlot', 'doctor'],
+  });
+
+  if (!appointment) throw new NotFoundException('Appointment not found');
+  if (appointment.doctor.doctor_id !== doctorId) {
+    throw new ForbiddenException('Unauthorized');
+  }
+
+  const slot = appointment.timeSlot;
+  if (!slot) throw new NotFoundException('Slot not found');
+
+  // Remove from slot bookings
+  if (slot.slot_bookings) {
+    for (const key in slot.slot_bookings) {
+      if (slot.slot_bookings[key].appointment_id === appointment.appointment_id) {
+        delete slot.slot_bookings[key];
+      }
+    }
+  }
+
+  slot.current_bookings = Math.max((slot.current_bookings ?? 1) - 1, 0);
+  slot.is_fully_booked = false;
+
+  appointment.appointment_status = 'cancelled';
+  await this.slotRepo.save(slot);
+  await this.appointmentRepo.save(appointment);
+
+  return { message: 'Appointment cancelled by doctor successfully' };
+}
+
 }
