@@ -32,4 +32,6 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+  booking_start_time: Date;
+  booking_end_time: Date;
 }

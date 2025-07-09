@@ -94,9 +94,9 @@ export class AppointmentsService {
       throw new ConflictException('Slot is not active');
     }
 
-    if (!slot.isBookingWindowOpen()) {
-      throw new ConflictException('Booking window is closed');
-    }
+    if (!slot.isBookingWindowValid(dto.booking_start_time, dto.booking_end_time)) {
+  throw new ConflictException('Booking window is closed');
+}
 
     if (slot.current_bookings >= (slot.patients_per_slot ?? 1)) {
       throw new ConflictException('Slot is fully booked');
