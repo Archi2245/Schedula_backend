@@ -22,6 +22,7 @@ import { Role } from '../types/roles.enum';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AccessTokenGuard } from '../auth/guard/access-token.guard';
 import { Public } from '../common/decorators/public.decorator';
+import { CreateAvailabilityDto } from './dto/create-availability.dto';
 
 @Controller('doctor')
 @UseGuards(AccessTokenGuard, RolesGuard)
@@ -122,7 +123,7 @@ export class DoctorController {
 @Roles(Role.DOCTOR)
 createAvailability(
   @Param('id', ParseIntPipe) doctorId: number,
-  @Body() dto: CreateSlotDto,
+  @Body() dto: CreateAvailabilityDto,
   @Req() req,
 ) {
   return this.doctorService.createAvailability(doctorId, dto, req.user.sub);

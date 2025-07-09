@@ -16,15 +16,6 @@ export class CreateAppointmentDto {
   @IsInt()
   slot_id: number;
 
-  @IsDateString()
-  scheduled_on: string; // ISO date-time string
-
-  @IsEnum(['morning', 'evening'])
-  session: 'morning' | 'evening';
-
-  @IsString()
-  weekday: string;
-
   @IsOptional()
   @IsString()
   reason?: string;
@@ -32,6 +23,4 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsString()
   notes?: string;
-  booking_start_time: Date;
-  booking_end_time: Date;
 }

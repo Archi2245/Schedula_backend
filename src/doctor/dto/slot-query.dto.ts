@@ -1,3 +1,4 @@
+// src/doctor/dto/slot-query.dto.ts
 import { IsOptional, IsDateString, IsEnum, IsNumber, Min, Max } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -7,7 +8,9 @@ export class SlotQueryDto {
   date?: string;
 
   @IsOptional()
-  @IsEnum(['morning', 'afternoon', 'evening'])
+  @IsEnum(['morning', 'afternoon', 'evening'], {
+    message: 'Session must be morning, afternoon, or evening',
+  })
   session?: 'morning' | 'afternoon' | 'evening';
 
   @IsOptional()

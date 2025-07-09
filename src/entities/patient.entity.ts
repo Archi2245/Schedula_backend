@@ -11,9 +11,9 @@ export class Patient {
   @PrimaryGeneratedColumn()
   patient_id: number;
 
-  @OneToOne(() => User)
-  @JoinColumn()
-  user: User;
+@OneToOne(() => User, { eager: true })
+@JoinColumn()
+user: User;
   
   @Column({ nullable: true }) first_name?: string;
   @Column({ nullable: true }) last_name?: string;

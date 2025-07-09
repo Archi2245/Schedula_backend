@@ -1,24 +1,25 @@
+// src/doctor/dto/update-slot.dto.ts
 import {
-  IsDateString,
-  IsEnum,
-  IsString,
+  IsOptional,
   Matches,
   IsNumber,
   Min,
   Max,
-  IsDate,
-  IsOptional
+  IsDateString,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class UpdateSlotDto {
   @IsOptional()
-  @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Consulting start time must be HH:MM' })
-  consulting_start_time?: string;
+  @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: 'Start time must be in HH:MM format',
+  })
+  start_time?: string;
 
   @IsOptional()
-  @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Consulting end time must be HH:MM' })
-  consulting_end_time?: string;
+  @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: 'End time must be in HH:MM format',
+  })
+  end_time?: string;
 
   @IsOptional()
   @IsNumber()
@@ -26,13 +27,12 @@ export class UpdateSlotDto {
   @Max(10, { message: 'Patients per slot cannot exceed 10' })
   patients_per_slot?: number;
 
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  booking_start_time?: Date;
+@IsOptional()
+@IsDateString({}, { message: 'Booking start time must be a valid ISO string' })
+booking_start_time?: string;
 
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  booking_end_time?: Date;
+@IsOptional()
+@IsDateString({}, { message: 'Booking end time must be a valid ISO string' })
+booking_end_time?: string;
+
 }

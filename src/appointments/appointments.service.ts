@@ -104,8 +104,8 @@ export class AppointmentsService {
     }
 
     const patient = await this.patientRepo.findOne({
-    where: { patient_id: patientId },
-  });
+  where: { user: { id: patientId } },
+});
   if (!patient) throw new NotFoundException('Patient not found');
 
   // Check for existing confirmed appointment in this slot
