@@ -33,11 +33,10 @@ export class CreateSlotDto {
   @Max(10, { message: 'Patients per slot cannot exceed 10' })
   patients_per_slot: number; // 3
 
-  @IsDate()
-  @Type(() => Date)
-  booking_start_time: Date; // When patients can start booking
+  @IsDateString()
+  booking_start_time: string;
 
-  @IsDate()
-  @Type(() => Date)
-  booking_end_time: Date; // When booking closes
+  @IsDateString()
+  booking_end_time: string;
+
 }

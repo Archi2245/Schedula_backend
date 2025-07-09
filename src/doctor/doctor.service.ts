@@ -323,7 +323,11 @@ if (anyAppointments) {
     doctor.default_consulting_time_per_patient,
   );
 
-  this.validateBookingWindow(dto.booking_start_time, dto.booking_end_time);
+  this.validateBookingWindow(
+  new Date(dto.booking_start_time),
+  new Date(dto.booking_end_time),
+);
+
 
   const newSlot = this.slotRepo.create({
     doctor,
@@ -358,13 +362,20 @@ if (anyAppointments) {
 
   async createAvailability(
   doctorId: number,
-  dto: CreateAvailabilityDto, // create a simple DTO with same fields as DoctorAvailability
+  dto: CreateAvailabilityDto,
   requestingUserId: number
 ) {
   const doctor = await this.findOne(doctorId);
 
   if (doctor.user.id !== requestingUserId) {
     throw new ForbiddenException('You can only create availability for your own profile');
+  }
+
+  const bookingStart = new Date(dto.booking_start_time);
+  const bookingEnd = new Date(dto.booking_end_time);
+
+  if (bookingStart >= bookingEnd) {
+    throw new BadRequestException('Booking start time must be before end time');
   }
 
   const availability = this.availabilityRepo.create({
@@ -382,6 +393,7 @@ if (anyAppointments) {
     availability_id: saved.id,
   };
 }
+
 
 
   private calculateSlotDuration(startTime: string, endTime: string): number {

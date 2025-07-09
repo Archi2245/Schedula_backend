@@ -1,8 +1,9 @@
 import {
+  IsDate,
   IsDateString,
   IsEnum,
   IsString,
-  Matches
+  Matches, 
 } from 'class-validator';
 
 export class CreateAvailabilityDto {
@@ -20,4 +21,11 @@ export class CreateAvailabilityDto {
 
   @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'End time must be HH:MM' })
   consulting_end_time: string;
+
+  @IsDateString()
+  booking_start_time: string;
+
+  @IsDateString()
+  booking_end_time: string;
+
 }

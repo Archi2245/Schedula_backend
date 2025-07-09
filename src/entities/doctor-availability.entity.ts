@@ -8,11 +8,11 @@ import { TimeSlot } from './time-slot.entity';
 @Entity()
 export class DoctorAvailability {
   
-  @Column({ type: 'timestamp' })
-  booking_start_time: Date;
+@Column({ type: 'timestamp', nullable: false }) // NOT NULL
+booking_start_time: Date;
 
-  @Column({ type: 'timestamp' })
-  booking_end_time: Date;
+@Column({ type: 'timestamp', nullable: false })
+booking_end_time: Date;
   
   @PrimaryGeneratedColumn()
   id: number;
