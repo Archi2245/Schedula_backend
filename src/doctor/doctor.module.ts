@@ -5,12 +5,14 @@ import { DoctorService } from './doctor.service';
 import { DoctorController } from './doctor.controller';
 import { DoctorAvailability } from 'src/entities/doctor-availability.entity';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { TimeSlot } from 'src/entities/time-slot.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Doctor,
       DoctorAvailability,
+      TimeSlot,
     ]),
     AppointmentsModule, // 🔥 NEW: Import appointments module for validation
   ],
