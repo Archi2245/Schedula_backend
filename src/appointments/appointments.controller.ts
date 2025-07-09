@@ -27,7 +27,7 @@ export class AppointmentsController {
   @Post()
   @Roles(Role.PATIENT)
   async createAppointment(@Body() dto: CreateAppointmentDto, @Req() req) {
-    return this.appointmentsService.create(dto, req.user.sub);
+    return this.appointmentsService.create(dto, req.user.sub, dto.slot_id);
   }
 
   // ✅ PATIENT VIEWS HIS APPOINTMENTS
