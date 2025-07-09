@@ -9,10 +9,8 @@ import { TimeSlot } from './time-slot.entity';
 export class DoctorAvailability {
   
   booking_start_time: any;
-  booking_end_time: Date | undefined;
-  isBookingWindowOpen(): unknown {
-    throw new Error('Method not implemented.');
-  }
+  booking_end_time: Date;
+  
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -66,6 +64,11 @@ export class DoctorAvailability {
       bookingStart < bookingEnd
     );
   }
+
+  isBookingWindowOpen(): boolean {
+  const now = new Date();
+  return this.booking_start_time <= now && this.booking_end_time >= now;
+}
 
   @Column({ default: 0 })
 current_bookings: number;
