@@ -236,7 +236,7 @@ export class AppointmentsService {
     if (!appointment) throw new NotFoundException('Appointment not found');
     return appointment;
   } 
-   async getAppointmentsByStatus(userId: number, role: Role, status: string) {
+  async getAppointmentsByStatus(userId: number, role: Role, status: string) {
   const now = new Date();
 
   const qb = this.appointmentRepo
@@ -248,7 +248,7 @@ export class AppointmentsService {
     .leftJoinAndSelect('appointment.timeSlot', 'timeSlot');
 
   if (role === Role.DOCTOR) {
-    qb.andWhere('doctorUser.id = :userId', { userId });
+  qb.andWhere('doctor.doctor_id = :doctorId', { doctorId: userId });
   } else if (role === Role.PATIENT) {
     qb.andWhere('patientUser.id = :userId', { userId });
   }
