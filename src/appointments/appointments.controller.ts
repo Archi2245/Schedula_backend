@@ -81,18 +81,15 @@ async getPatientAppointmentsByStatus(
   return this.appointmentsService.getAppointmentsByStatus(req.user.sub, Role.PATIENT, status);
 }
 
-// ✅ DOCTOR: View upcoming/past/cancelled appointments
-@Get('doctor/:doctorId/status')
+// GET /appointments/doctor/status?status=past
+@Get('doctor/status')
 @Roles(Role.DOCTOR)
 async getDoctorAppointmentsByStatus(
-  @Param('doctorId', ParseIntPipe) doctorId: number,
   @Query('status') status: 'upcoming' | 'past' | 'cancelled',
   @Req() req,
 ) {
-  if (doctorId !== req.user.sub) {
-    throw new ForbiddenException('Unauthorized access');
-  }
-  return this.appointmentsService.getAppointmentsByStatus(doctorId, Role.DOCTOR, status);
+  return this.appointmentsService.getAppointmentsByStatus(req.user.sub, Role.DOCTOR, status);
 }
+
 
 }
