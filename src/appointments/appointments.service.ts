@@ -14,6 +14,7 @@ import { Patient } from '../entities/patient.entity';
 import { Doctor } from '../entities/doctor.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Role } from 'src/types/roles.enum';
+import { TimeSlot } from 'src/entities/time-slot.entity';
 
 @Injectable()
 export class AppointmentsService {
@@ -21,8 +22,9 @@ export class AppointmentsService {
     @InjectRepository(Appointment)
     private readonly appointmentRepo: Repository<Appointment>,
 
-    @InjectRepository(DoctorAvailability)
-    private readonly slotRepo: Repository<DoctorAvailability>,
+    @InjectRepository(TimeSlot)
+    private readonly slotRepo: Repository<TimeSlot>,
+
 
     @InjectRepository(Patient)
     private readonly patientRepo: Repository<Patient>,
@@ -84,80 +86,84 @@ export class AppointmentsService {
   }
 
   // ✅ Book appointment (main logic)
-  async createAppointment(dto: CreateAppointmentDto, patientId: number, slotId: number) {
-    const slot = await this.slotRepo.findOne({
-      where: { id: dto.slot_id },
-      relations: ['doctor'],
-    });
-    if (!slot) throw new NotFoundException('Slot not found');
+  async createAppointment(dto: CreateAppointmentDto, userId: number, slotId: number) {
+  const slot = await this.slotRepo.findOne({
+    where: { slot_id: slotId },
+    relations: ['doctor'],
+  })as TimeSlot;
 
-    if (slot.slot_status !== 'active') {
-      throw new ConflictException('Slot is not active');
-    }
+  if (!slot) throw new NotFoundException('Slot not found');
 
-    if (!slot.isBookingWindowOpen()) {
-  throw new ConflictException('Booking window is closed');
-}
+  if (slot.slot_status !== 'active') {
+    throw new ConflictException('Slot is not active');
+  }
 
-    if (slot.current_bookings >= (slot.patients_per_slot ?? 1)) {
-      throw new ConflictException('Slot is fully booked');
-    }
+  if (!slot.isBookingWindowOpen()) {
+    throw new ConflictException('Booking window is closed');
+  }
 
-    const patient = await this.patientRepo.findOne({
-  where: { user: { id: patientId } },
-});
+  if (slot.current_bookings >= (slot.patients_per_slot ?? 1)) {
+    throw new ConflictException('Slot is fully booked');
+  }
+
+  // ✅ FIX: Patient lookup via User ID
+  const patient = await this.patientRepo.findOne({
+    where: { user: { id: userId } },
+    relations: ['user'],
+  });
   if (!patient) throw new NotFoundException('Patient not found');
 
-  // Check for existing confirmed appointment in this slot
+  // ✅ Prevent double booking
   const existing = await this.appointmentRepo.findOne({
     where: {
-      patient: { patient_id: patientId },
-      timeSlot: { slot_id: slotId },
+      patient: { patient_id: patient.patient_id },
+      timeSlot: { slot_id: slot.slot_id },
       appointment_status: 'confirmed',
     },
   });
   if (existing) throw new ConflictException('You already booked this slot');
 
-    const position = slot.current_bookings + 1;
-    const reportingTimes = slot.getReportingTimes();
-    const reportingTimeStr = reportingTimes[position - 1];
-    const reportingTime = new Date(`${slot.date}T${reportingTimeStr}`);
-    const scheduledOn = new Date(`${slot.date}T${slot.consulting_start_time}`);
+  const position = slot.current_bookings + 1;
+  const reportingTimes = slot.getReportingTimes();
+  const reportingTimeStr = reportingTimes[position - 1];
+  const reportingTime = new Date(`${slot.date}T${reportingTimeStr}`);
+  const scheduledOn = new Date(`${slot.date}T${slot.start_time}`);
 
-    const appointment = this.appointmentRepo.create({
-      doctor: slot.doctor,
-      patient,
-      timeSlot: slot,
-      scheduled_on: scheduledOn,
-      duration_minutes: slot.slot_duration_minutes ?? 15,
-      appointment_status: 'confirmed',
-      reporting_time: reportingTime,
-      slot_position: position,
-    });
+  const appointment = this.appointmentRepo.create({
+    doctor: slot.doctor,
+    patient,
+    timeSlot: slot,
+    scheduled_on: scheduledOn,
+    duration_minutes: slot.slot_duration_minutes ?? 15,
+    appointment_status: 'confirmed',
+    reporting_time: reportingTime,
+    slot_position: position,
+  });
 
-    const saved = await this.appointmentRepo.save(appointment);
+  const saved = await this.appointmentRepo.save(appointment);
 
-    // ✅ Update DoctorAvailability Slot
-    slot.current_bookings = (slot.current_bookings ?? 0) + 1;
-    slot.is_fully_booked = slot.current_bookings >= (slot.patients_per_slot ?? 1);
+  // 🔁 Update Slot
+  slot.current_bookings++;
+  slot.is_fully_booked = slot.current_bookings >= (slot.patients_per_slot ?? 1);
 
-    const slotBookings = slot.slot_bookings || {};
-    slotBookings[position] = {
-      patient_id: patient.patient_id,
-      appointment_id: saved.appointment_id,
-      position,
-      reporting_time: reportingTimeStr,
-    };
-    slot.slot_bookings = slotBookings;
+  const slotBookings = slot.slot_bookings || {};
+  slotBookings[position] = {
+    patient_id: patient.patient_id,
+    appointment_id: saved.appointment_id,
+    position,
+    reporting_time: reportingTimeStr,
+  };
+  slot.slot_bookings = slotBookings;
 
-    await this.slotRepo.save(slot);
+  await this.slotRepo.save(slot);
 
-    return {
-      message: 'Appointment booked successfully',
-      appointment_id: saved.appointment_id,
-      reporting_time: reportingTime,
-    };
-  }
+  return {
+    message: 'Appointment booked successfully',
+    appointment_id: saved.appointment_id,
+    reporting_time: reportingTime,
+  };
+}
+
 
   // ✅ Cancel appointment by patient
   async cancelAppointment(appointmentId: number, patientId: number) {
