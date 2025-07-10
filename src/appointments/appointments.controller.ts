@@ -17,11 +17,19 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../types/roles.enum';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { Doctor } from 'src/entities/doctor.entity';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Controller('appointments')
 @UseGuards(AccessTokenGuard, RolesGuard)
 export class AppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(
+    
+    private readonly appointmentsService: AppointmentsService, 
+    
+    @InjectRepository(Doctor)
+    private readonly doctorRepo: Repository<Doctor>,) {}
 
   // ✅ PATIENT BOOKS APPOINTMENT
   @Post()
@@ -81,15 +89,22 @@ async getPatientAppointmentsByStatus(
   return this.appointmentsService.getAppointmentsByStatus(req.user.sub, Role.PATIENT, status);
 }
 
-// GET /appointments/doctor/status?status=past
-@Get('doctor/status')
+@Get('doctor/:doctorId/status')
 @Roles(Role.DOCTOR)
 async getDoctorAppointmentsByStatus(
+  @Param('doctorId', ParseIntPipe) doctorId: number,
   @Query('status') status: 'upcoming' | 'past' | 'cancelled',
   @Req() req,
 ) {
-  return this.appointmentsService.getAppointmentsByStatus(req.user.sub, Role.DOCTOR, status);
-}
+  const doctor = await this.doctorRepo.findOne({
+    where: { user: { id: req.user.sub } },
+  });
 
+  if (!doctor || doctor.doctor_id !== doctorId) {
+    throw new ForbiddenException('Unauthorized access');
+  }
+
+  return this.appointmentsService.getAppointmentsByStatus(doctorId, Role.DOCTOR, status);
+}
 
 }
