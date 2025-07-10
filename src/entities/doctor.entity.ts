@@ -12,9 +12,9 @@ export class Doctor {
   @PrimaryGeneratedColumn()
   doctor_id: number;
 
-  @OneToOne(() => User)
-  @JoinColumn()
-  user: User;
+  @OneToOne(() => User, { eager: true })
+@JoinColumn()
+user: User;
 
   @Column()
   name: string;

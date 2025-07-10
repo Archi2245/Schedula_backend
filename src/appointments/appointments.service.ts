@@ -172,7 +172,7 @@ export class AppointmentsService {
       relations: ['timeSlot', 'patient'],
     });
     if (!appointment) throw new NotFoundException('Appointment not found');
-    if (appointment.patient.patient_id !== patientId) throw new ForbiddenException('Unauthorized');
+    if (appointment.patient.user.id !== patientId) throw new ForbiddenException('Unauthorized');
 
     const slot = appointment.timeSlot;
     if (!slot) throw new NotFoundException('Slot not found');
@@ -238,28 +238,34 @@ export class AppointmentsService {
   } 
    async getAppointmentsByStatus(userId: number, role: Role, status: string) {
   const now = new Date();
-  const whereCondition: any = {
-    appointment_status: status,
-  };
 
-  if (role === Role.PATIENT) whereCondition.patient = { user: { id: userId } };
-  else if (role === Role.DOCTOR) whereCondition.doctor = { user: { id: userId } };
+  const qb = this.appointmentRepo
+    .createQueryBuilder('appointment')
+    .leftJoinAndSelect('appointment.doctor', 'doctor')
+    .leftJoinAndSelect('doctor.user', 'doctorUser')
+    .leftJoinAndSelect('appointment.patient', 'patient')
+    .leftJoinAndSelect('patient.user', 'patientUser')
+    .leftJoinAndSelect('appointment.timeSlot', 'timeSlot');
 
-  if (status === 'upcoming') {
-    whereCondition.scheduled_on = MoreThanOrEqual(now);
-    whereCondition.appointment_status = 'confirmed';
-  } else if (status === 'past') {
-    whereCondition.scheduled_on = LessThan(now);
-    whereCondition.appointment_status = 'confirmed';
-  } else if (status === 'cancelled') {
-    whereCondition.appointment_status = 'cancelled';
+  if (role === Role.DOCTOR) {
+    qb.andWhere('doctorUser.id = :userId', { userId });
+  } else if (role === Role.PATIENT) {
+    qb.andWhere('patientUser.id = :userId', { userId });
   }
 
-  return this.appointmentRepo.find({
-    where: whereCondition,
-    relations: ['doctor', 'patient', 'timeSlot'],
-  });
+  if (status === 'upcoming') {
+    qb.andWhere('appointment.scheduled_on >= :now', { now });
+    qb.andWhere('appointment.appointment_status = :status', { status: 'confirmed' });
+  } else if (status === 'past') {
+    qb.andWhere('appointment.scheduled_on < :now', { now });
+    qb.andWhere('appointment.appointment_status = :status', { status: 'confirmed' });
+  } else if (status === 'cancelled') {
+    qb.andWhere('appointment.appointment_status = :status', { status: 'cancelled' });
+  }
+
+  return qb.getMany();
 }
+
 
 async cancelAppointmentByDoctor(appointmentId: number, doctorId: number) {
   const appointment = await this.appointmentRepo.findOne({
@@ -268,7 +274,7 @@ async cancelAppointmentByDoctor(appointmentId: number, doctorId: number) {
   });
 
   if (!appointment) throw new NotFoundException('Appointment not found');
-  if (appointment.doctor.doctor_id !== doctorId) {
+  if (appointment.doctor.user.id !== doctorId) {
     throw new ForbiddenException('Unauthorized');
   }
 
