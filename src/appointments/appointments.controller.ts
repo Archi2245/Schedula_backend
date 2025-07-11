@@ -10,6 +10,7 @@ import {
   Patch,
   Query,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { AccessTokenGuard } from '../auth/guard/access-token.guard';
@@ -20,6 +21,7 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Doctor } from 'src/entities/doctor.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { RescheduleAppointmentsDto } from './dto/reschedule-appointments.dto';
 
 @Controller('appointments')
 @UseGuards(AccessTokenGuard, RolesGuard)
@@ -105,6 +107,34 @@ async getDoctorAppointmentsByStatus(
   }
 
   return this.appointmentsService.getAppointmentsByStatus(doctorId, Role.DOCTOR, status);
+}
+
+// PATCH /appointments/reschedule-all
+@Patch('reschedule-all')
+@Roles(Role.DOCTOR)
+async rescheduleAllAppointments(
+  @Body() dto: RescheduleAppointmentsDto,
+  @Req() req,
+) {
+  return this.appointmentsService.rescheduleAllAppointments(req.user.sub, dto.shift_minutes);
+}
+
+// PATCH /appointments/reschedule-selected
+@Patch('reschedule-selected')
+@Roles(Role.DOCTOR)
+async rescheduleSelectedAppointments(
+  @Body() dto: RescheduleAppointmentsDto,
+  @Req() req,
+) {
+  if (!dto.appointment_ids) {
+    throw new BadRequestException('appointment_ids must be provided');
+  }
+
+  return this.appointmentsService.rescheduleSelectedAppointments(
+    req.user.sub,
+    dto.appointment_ids,
+    dto.shift_minutes,
+  );
 }
 
 }

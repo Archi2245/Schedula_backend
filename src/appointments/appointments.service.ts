@@ -15,6 +15,7 @@ import { Doctor } from '../entities/doctor.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Role } from 'src/types/roles.enum';
 import { TimeSlot } from 'src/entities/time-slot.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class AppointmentsService {
@@ -299,5 +300,99 @@ async cancelAppointmentByDoctor(appointmentId: number, doctorId: number) {
 
   return { message: 'Appointment cancelled by doctor successfully' };
 }
+
+async rescheduleAllAppointments(doctorId: number, shift_minutes: number) {
+  if (shift_minutes < 10 || shift_minutes > 180) {
+    throw new BadRequestException('Shift must be between 10 and 180 minutes');
+  }
+
+  const now = new Date();
+
+  const appointments = await this.appointmentRepo.find({
+    where: {
+      doctor: { doctor_id: doctorId },
+      appointment_status: 'confirmed',
+      scheduled_on: MoreThanOrEqual(now),
+    },
+    relations: ['timeSlot'],
+  });
+
+  for (const appointment of appointments) {
+    const newScheduled = new Date(appointment.scheduled_on);
+    newScheduled.setMinutes(newScheduled.getMinutes() + shift_minutes);
+
+    const newReporting = appointment.reporting_time
+      ? new Date(appointment.reporting_time)
+      : null;
+
+    if (newReporting) {
+      newReporting.setMinutes(newReporting.getMinutes() + shift_minutes);
+    }
+
+    appointment.scheduled_on = newScheduled;
+    appointment.reporting_time = newReporting;
+  }
+
+  await this.appointmentRepo.save(appointments);
+
+  return {
+    message: `${appointments.length} appointments rescheduled successfully.`,
+  };
+}
+
+async rescheduleSelectedAppointments(
+  doctorId: number,
+  appointment_ids: number[],
+  shift_minutes: number,
+) {
+  if (shift_minutes < 10 || shift_minutes > 180) {
+    throw new BadRequestException(
+      'Shift must be between 10 and 180 minutes',
+    );
+  }
+
+  if (!appointment_ids || appointment_ids.length === 0) {
+    throw new BadRequestException('No appointment IDs provided');
+  }
+
+  const appointments = await this.appointmentRepo
+    .createQueryBuilder('appointment')
+    .leftJoinAndSelect('appointment.timeSlot', 'timeSlot')
+    .leftJoin('appointment.doctor', 'doctor')
+    .where('appointment.appointment_id IN (:...ids)', { ids: appointment_ids })
+    .andWhere('doctor.doctor_id = :doctorId', { doctorId })
+    .andWhere('appointment.appointment_status = :status', {
+      status: 'confirmed',
+    })
+    .getMany();
+
+  if (appointments.length === 0) {
+    throw new NotFoundException('No matching appointments found to reschedule');
+  }
+
+  for (const appointment of appointments) {
+    const newScheduled = new Date(appointment.scheduled_on);
+    newScheduled.setMinutes(newScheduled.getMinutes() + shift_minutes);
+
+    const newReporting = appointment.reporting_time
+      ? new Date(appointment.reporting_time)
+      : null;
+
+    if (newReporting) {
+      newReporting.setMinutes(newReporting.getMinutes() + shift_minutes);
+    }
+
+    appointment.scheduled_on = newScheduled;
+    appointment.reporting_time = newReporting;
+  }
+
+  await this.appointmentRepo.save(appointments);
+
+  return {
+    message: `${appointments.length} selected appointments rescheduled successfully.`,
+  };
+}
+
+
 
 }

@@ -34,7 +34,7 @@ export class Appointment {
   notes?: string;
 
   @Column({ type: 'timestamp', nullable: true })
-  reporting_time?: Date;
+  reporting_time: Date | null;
 
   @Column({ nullable: true })
   time_interval_minutes?: number;
